@@ -20,3 +20,6 @@ Thumbs.db
 HELP.md
 application-local.yml
 application-local.properties
+
+# Claude Code
+CLAUDE.md
