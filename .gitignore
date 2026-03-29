@@ -8,11 +8,15 @@ target/
 .idea/
 *.iml
 .vscode/
-*.DS_Store
+.DS_Store
+Thumbs.db
 
-# Env
+# Env — keep only the example template
 .env
-.env.local
+.env.*
+!.env.example
 
-# Spring Boot
+# Spring Boot — keep only shared configs
 HELP.md
+application-local.yml
+application-local.properties

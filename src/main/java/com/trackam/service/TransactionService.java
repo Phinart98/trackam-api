@@ -1,6 +1,7 @@
 package com.trackam.service;
 
 import com.trackam.dto.TransactionRequest;
+import com.trackam.exception.TrackAmException;
 import com.trackam.model.Transaction;
 import com.trackam.repository.TransactionRepository;
 import lombok.RequiredArgsConstructor;
@@ -9,8 +10,11 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
+import java.time.Instant;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeParseException;
 
 @Service
 @RequiredArgsConstructor
@@ -25,6 +29,7 @@ public class TransactionService {
     }
 
     public Transaction create(TransactionRequest req, String userId) {
+        Instant date = parseDate(req.date());
         Transaction tx = Transaction.builder()
             .userId(userId)
             .type(req.type())
@@ -34,7 +39,7 @@ public class TransactionService {
             .description(req.description())
             .vendor(req.vendor())
             .source(req.source())
-            .date(LocalDateTime.parse(req.date(), DateTimeFormatter.ISO_DATE_TIME))
+            .date(date)
             .confidence(req.confidence())
             .build();
 
@@ -65,12 +70,21 @@ public class TransactionService {
             .toLowerCase();
     }
 
-    public void delete(String id, String userId) {
-        Transaction tx = repo.findById(id)
-            .orElseThrow(() -> new RuntimeException("Transaction not found"));
-        if (!tx.getUserId().equals(userId)) {
-            throw new RuntimeException("Not authorized");
+    private static Instant parseDate(String raw) {
+        try {
+            return LocalDateTime.parse(raw).toInstant(ZoneOffset.UTC);
+        } catch (DateTimeParseException ignored) {
         }
+        try {
+            return LocalDate.parse(raw).atStartOfDay().toInstant(ZoneOffset.UTC);
+        } catch (DateTimeParseException e) {
+            throw new TrackAmException("Invalid date format. Use YYYY-MM-DD or ISO date-time.");
+        }
+    }
+
+    public void delete(String id, String userId) {
+        Transaction tx = repo.findByIdAndUserId(id, userId)
+            .orElseThrow(() -> new TrackAmException("Transaction not found"));
         repo.delete(tx);
     }
 }

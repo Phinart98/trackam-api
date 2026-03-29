@@ -1,0 +1,27 @@
+# Prevents Supabase free-tier project from pausing after 7 days of inactivity.
+# Runs a simple SELECT 1 query via the Supabase REST API every 5 days.
+
+name: Keep Supabase Alive
+
+on:
+  schedule:
+    - cron: '0 8 */5 * *'  # Every 5 days at 08:00 UTC
+  workflow_dispatch: {}      # Manual trigger for testing
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Supabase
+        run: |
+          response=$(curl -s -o /dev/null -w "%{http_code}" \
+            "${{ secrets.SUPABASE_URL }}/rest/v1/" \
+            -H "apikey: ${{ secrets.SUPABASE_ANON_KEY }}" \
+            -H "Authorization: Bearer ${{ secrets.SUPABASE_ANON_KEY }}")
+          echo "Supabase responded with HTTP $response"
+          if [ "$response" -ge 200 ] && [ "$response" -lt 400 ]; then
+            echo "Supabase is alive."
+          else
+            echo "Warning: Supabase returned $response"
+            exit 1
+          fi

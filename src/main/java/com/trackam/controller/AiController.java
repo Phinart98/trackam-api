@@ -1,54 +1,60 @@
 package com.trackam.controller;
 
-import com.trackam.dto.AdvisorRequest;
-import com.trackam.dto.AdvisorResponse;
-import com.trackam.dto.ParseTextRequest;
-import com.trackam.dto.ParsedTransactionResponse;
-import com.trackam.service.AiService;
+import java.io.IOException;
+import java.util.Map;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
-
-import java.util.List;
+import com.trackam.dto.AdvisorRequest;
+import com.trackam.dto.AdvisorResponse;
+import com.trackam.dto.InsightRequest;
+import com.trackam.dto.ParseTextRequest;
+import com.trackam.dto.ParsedTransactionResponse;
+import com.trackam.service.AiService;
 
 @RestController
 @RequestMapping("/api/ai")
 @RequiredArgsConstructor
 public class AiController {
 
+    private static final String DEFAULT_CURRENCY = "GHS";
+
     private final AiService aiService;
 
     @PostMapping("/parse-text")
     public ResponseEntity<ParsedTransactionResponse> parseText(
             @RequestBody @Valid ParseTextRequest request,
-            @AuthenticationPrincipal Jwt jwt) throws Exception {
+            @AuthenticationPrincipal Jwt jwt) {
         String userId = jwt.getSubject();
-        String currency = request.currency() != null ? request.currency() : "GHS";
+        String currency = request.currency() != null ? request.currency() : DEFAULT_CURRENCY;
         return ResponseEntity.ok(aiService.parseText(request.text(), currency, userId));
     }
-
-    private static final List<String> ALLOWED_IMAGE_TYPES = List.of("image/jpeg", "image/png", "image/webp");
-    private static final long MAX_IMAGE_SIZE = 5 * 1024 * 1024; // 5MB
 
     @PostMapping("/parse-image")
     public ResponseEntity<ParsedTransactionResponse> parseImage(
             @RequestParam("file") MultipartFile file,
-            @AuthenticationPrincipal Jwt jwt) throws Exception {
-        if (file.isEmpty()) {
-            throw new IllegalArgumentException("Image file is required.");
-        }
-        if (!ALLOWED_IMAGE_TYPES.contains(file.getContentType())) {
-            throw new IllegalArgumentException("Only JPEG, PNG, and WebP images are accepted.");
-        }
-        if (file.getSize() > MAX_IMAGE_SIZE) {
-            throw new IllegalArgumentException("Image must be under 5MB.");
-        }
+            @RequestParam(value = "currency", required = false) String currency,
+            @AuthenticationPrincipal Jwt jwt) throws IOException {
         String userId = jwt.getSubject();
-        return ResponseEntity.ok(aiService.parseImage(file, userId));
+        String userCurrency = (currency != null && !currency.isBlank()) ? currency : DEFAULT_CURRENCY;
+        return ResponseEntity.ok(aiService.parseImage(file, userCurrency, userId));
+    }
+
+    @PostMapping("/insight")
+    public ResponseEntity<Map<String, String>> insight(
+            @RequestBody InsightRequest request,
+            @AuthenticationPrincipal Jwt jwt) {
+        String userId = jwt.getSubject();
+        String text = aiService.generateInsight(request, userId);
+        return ResponseEntity.ok(Map.of("insight", text));
     }
 
     @PostMapping("/advisor")

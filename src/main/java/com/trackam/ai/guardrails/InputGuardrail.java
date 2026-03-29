@@ -1,7 +1,10 @@
 package com.trackam.ai.guardrails;
 
+import java.io.IOException;
+import java.util.Arrays;
 import java.util.List;
 import java.util.regex.Pattern;
+import org.springframework.web.multipart.MultipartFile;
 
 /**
  * Input guardrails — run before AI calls.
@@ -58,6 +61,42 @@ public final class InputGuardrail {
                     "Example: 'paid 50 cedis for groceries'");
             }
         }
+    }
+
+    /**
+     * Validate image file by reading magic bytes — do NOT trust Content-Type header.
+     * Accepts: JPEG, PNG, WebP, GIF.
+     */
+    public static void validateImage(MultipartFile file) {
+        if (file == null || file.isEmpty()) {
+            throw new IllegalArgumentException("Image file is required.");
+        }
+        if (file.getSize() > 10 * 1024 * 1024) {
+            throw new IllegalArgumentException("Image too large. Maximum 10 MB.");
+        }
+        try {
+            byte[] bytes = file.getBytes();
+            byte[] header = bytes.length >= 12 ? Arrays.copyOf(bytes, 12) : bytes;
+            if (!isAllowedImageType(header)) {
+                throw new IllegalArgumentException("Only JPEG, PNG, WebP, and GIF images are accepted.");
+            }
+        } catch (IOException e) {
+            throw new IllegalArgumentException("Could not read image file.");
+        }
+    }
+
+    private static boolean isAllowedImageType(byte[] h) {
+        if (h.length < 4) return false;
+        // JPEG: FF D8 FF
+        if ((h[0] & 0xFF) == 0xFF && (h[1] & 0xFF) == 0xD8 && (h[2] & 0xFF) == 0xFF) return true;
+        // PNG: 89 50 4E 47
+        if ((h[0] & 0xFF) == 0x89 && h[1] == 0x50 && h[2] == 0x4E && h[3] == 0x47) return true;
+        // GIF: 47 49 46 38
+        if (h[0] == 0x47 && h[1] == 0x49 && h[2] == 0x46 && h[3] == 0x38) return true;
+        // WebP: RIFF????WEBP (bytes 0-3 = "RIFF", bytes 8-11 = "WEBP")
+        if (h.length >= 12 && h[0] == 0x52 && h[1] == 0x49 && h[2] == 0x46 && h[3] == 0x46
+                && h[8] == 0x57 && h[9] == 0x45 && h[10] == 0x42 && h[11] == 0x50) return true;
+        return false;
     }
 
     public static void validateAdvisorQuestion(String question) {

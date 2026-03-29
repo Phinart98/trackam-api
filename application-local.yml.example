@@ -1,0 +1,27 @@
+# Copy this file to application-local.yml and fill in your values.
+# application-local.yml is gitignored — never commit it.
+#
+# Run with: mvn spring-boot:run "-Dspring-boot.run.profiles=local"
+
+spring:
+  datasource:
+    url: jdbc:postgresql://aws-0-REGION.pooler.supabase.com:6543/postgres?prepareThreshold=0
+    username: postgres.YOUR_PROJECT_REF
+    password: your-db-password
+  ai:
+    openai:
+      api-key: gsk_your-groq-api-key  # Groq key goes here (uses OpenAI-compatible API)
+
+trackam:
+  cors:
+    allowed-origins: http://localhost:3000
+  supabase:
+    jwt-secret: your-jwt-secret-from-supabase-settings-api
+    project-url: https://YOUR_PROJECT_REF.supabase.co
+  admin:
+    user-id: your-supabase-user-uuid
+  ai:
+    gemini:
+      api-key: AIza_your-gemini-api-key
+    cerebras:
+      api-key: csk-your-cerebras-api-key  # optional

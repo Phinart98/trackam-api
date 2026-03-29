@@ -1,8 +1,11 @@
 package com.trackam.ai;
 
+import com.trackam.model.CustomCategory;
+import java.util.List;
+
 public class ImageParserPrompt {
 
-    public static final String SYSTEM = """
+    private static final String TEMPLATE = """
         You are reading an image for TrackAm, a financial tracker for Africa's informal economy.
         The image may be:
         1. A printed receipt (possibly crumpled or faded)
@@ -10,34 +13,35 @@ public class ImageParserPrompt {
         3. A handwritten receipt or invoice
         4. A bank SMS alert screenshot
 
-        Extract transaction data from the image.
+        Extract the PRIMARY transaction from the image. If multiple line items exist, return
+        the most significant one or an aggregate total as a single transaction.
 
         Rules:
         - MoMo "received" or "cash in" = income (category: momo)
         - MoMo "sent", "paid", "cash out" = expense
         - Extract: amount, vendor/sender/receiver name, date, description of items
-        - If multiple line items exist, create one transaction per item OR one aggregate (use judgment)
-        - Always return an array in "transactions" field, even for a single transaction
-        - Mark confidence=low if image is unclear but still return your best guess
+        - Mark confidence low (0-40) if image is unclear but still return your best guess
+        - IMPORTANT: Detect the ACTUAL currency shown on the receipt (look for $, €, £, USD, EUR, GBP, NGN, KES, ZAR symbols or codes)
+        - The user's preferred currency is %s — but return the currency ACTUALLY on the receipt
 
-        Valid categories: transport, food, market, airtime, bills, health, education, supplies, personal, gifts, other_expense, sales, momo, salary, other_income
+        %s
 
-        Return valid JSON:
+        Return a single valid JSON object — no array wrapper:
         {
-          "transactions": [
-            {
-              "amount": number,
-              "currency": "GHS",
-              "category": string,
-              "type": "income" or "expense",
-              "description": string,
-              "vendor": string,
-              "date": "YYYY-MM-DD",
-              "confidence": number 0-100
-            }
-          ]
+          "amount": number,
+          "currency": "ISO 4217 currency code ACTUALLY shown on the receipt (e.g. USD, EUR, GHS, NGN)",
+          "category": string,
+          "type": "income" or "expense",
+          "description": string,
+          "vendor": string,
+          "date": "YYYY-MM-DD",
+          "confidence": number 0-100
         }
 
-        No markdown. No extra text.
+        No markdown. No extra text. No wrapper object.
         """;
+
+    public static String build(List<CustomCategory> customCategories, String userCurrency) {
+        return TEMPLATE.formatted(userCurrency, CategoryPromptHelper.buildCategorySection(customCategories));
+    }
 }

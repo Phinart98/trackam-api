@@ -13,7 +13,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.hibernate.annotations.CreationTimestamp;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 @Entity
 @Table(name = "chat_messages")
@@ -41,5 +41,5 @@ public class ChatMessage {
     private String content;
 
     @CreationTimestamp
-    private LocalDateTime createdAt;
+    private Instant createdAt;
 }

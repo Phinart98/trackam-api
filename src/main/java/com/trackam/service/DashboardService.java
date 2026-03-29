@@ -8,6 +8,7 @@ import org.springframework.stereotype.Service;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 @Service
@@ -18,13 +19,12 @@ public class DashboardService {
 
     public DashboardSummaryResponse getSummary(String userId) {
         // SQL aggregates — no full table load into memory
-        BigDecimal totalIncome = repo.sumByUserIdAndType(userId, "income");
-        BigDecimal totalExpenses = repo.sumByUserIdAndType(userId, "expense");
+        BigDecimal totalIncome = Objects.requireNonNullElse(repo.sumByUserIdAndType(userId, "income"), BigDecimal.ZERO);
+        BigDecimal totalExpenses = Objects.requireNonNullElse(repo.sumByUserIdAndType(userId, "expense"), BigDecimal.ZERO);
         BigDecimal balance = totalIncome.subtract(totalExpenses);
         long txCount = repo.countByUserId(userId);
 
-        List<String> currencies = repo.findLatestCurrencyByUserId(userId);
-        String currency = currencies.isEmpty() ? "GHS" : currencies.get(0);
+        String currency = repo.findLatestCurrencyByUserId(userId).orElse("GHS");
 
         List<Object[]> categoryTotals = repo.getCategoryTotals(userId);
         List<DashboardSummaryResponse.CategoryBreakdown> breakdown = categoryTotals.stream()

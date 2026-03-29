@@ -11,9 +11,13 @@ public record ParsedTransactionResponse(
     @JsonProperty("amount") BigDecimal amount,
     @JsonProperty("currency") String currency,
     @JsonProperty("category") String category,
-    @JsonProperty("type") String type,           // "income" | "expense"
+    @JsonProperty("type") String type,                         // "income" | "expense"
     @JsonProperty("description") String description,
     @JsonProperty("vendor") String vendor,
-    @JsonProperty("date") String date,            // ISO 8601
-    @JsonProperty("confidence") int confidence    // 0-100
+    @JsonProperty("date") String date,                         // ISO 8601
+    @JsonProperty("confidence") int confidence,                // 0-100
+    // FX conversion — null when no conversion was applied
+    @JsonProperty("originalCurrency") String originalCurrency,
+    @JsonProperty("originalAmount") BigDecimal originalAmount,
+    @JsonProperty("exchangeRate") BigDecimal exchangeRate
 ) {}

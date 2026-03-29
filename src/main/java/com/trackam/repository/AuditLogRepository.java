@@ -18,7 +18,7 @@ public interface AuditLogRepository extends JpaRepository<AuditLog, String> {
     List<Object[]> getProviderMetrics();
 
     @Query("SELECT COUNT(a) FROM AuditLog a WHERE a.userId = :userId AND a.createdAt > :since")
-    long countRecentCallsByUser(@Param("userId") String userId, @Param("since") java.time.LocalDateTime since);
+    long countRecentCallsByUser(@Param("userId") String userId, @Param("since") java.time.Instant since);
 
     // Anonymize on user deletion — keep records for financial compliance, remove PII
     @Modifying

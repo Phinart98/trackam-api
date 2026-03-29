@@ -13,6 +13,8 @@ public class AdvisorPrompt {
         4. Always use their currency symbol in responses
         5. Be encouraging and practical, not lecturing
         6. If you don't have data to answer something, say so honestly
+        7. If total income AND total expenses are both 0, the user has no transactions yet. Tell them
+           to start adding transactions and what to add first. Do not make up or guess any numbers.
 
         Good response example:
         "You spent GH₵ 2,340 on transport this month, which is 35% more than last month. Your food costs

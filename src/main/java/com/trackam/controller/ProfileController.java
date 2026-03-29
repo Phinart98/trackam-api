@@ -5,10 +5,16 @@ import com.trackam.model.BusinessProfile;
 import com.trackam.repository.BusinessProfileRepository;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/profile")
@@ -25,10 +31,12 @@ public class ProfileController {
     }
 
     @PostMapping
+    @Transactional
     public ResponseEntity<BusinessProfile> upsertProfile(
             @RequestBody @Valid ProfileRequest req,
             @AuthenticationPrincipal Jwt jwt) {
         String userId = jwt.getSubject();
+        boolean exists = profileRepo.existsById(userId);
         BusinessProfile profile = BusinessProfile.builder()
             .id(userId)
             .businessName(req.businessName())
@@ -38,6 +46,9 @@ public class ProfileController {
             .country(req.country())
             .monthlyBudget(req.monthlyBudget())
             .build();
-        return ResponseEntity.ok(profileRepo.save(profile));
+        BusinessProfile saved = profileRepo.save(profile);
+        return exists
+            ? ResponseEntity.ok(saved)
+            : ResponseEntity.status(HttpStatus.CREATED).body(saved);
     }
 }

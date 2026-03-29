@@ -15,7 +15,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -40,7 +40,7 @@ public class UserDataController {
         String userId = jwt.getSubject();
 
         Map<String, Object> data = new LinkedHashMap<>();
-        data.put("exportedAt", LocalDateTime.now().toString());
+        data.put("exportedAt", Instant.now().toString());
         data.put("userId", userId);
         data.put("profile", profileRepo.findById(userId).orElse(null));
         data.put("transactions", txRepo.findByUserIdOrderByDateDesc(userId));
@@ -56,9 +56,8 @@ public class UserDataController {
         String userId = jwt.getSubject();
 
         chatMessageRepo.deleteByUserId(userId);
-        chatSessionRepo.findByUserIdOrderByUpdatedAtDesc(userId)
-            .forEach(chatSessionRepo::delete);
-        txRepo.findByUserIdOrderByDateDesc(userId).forEach(txRepo::delete);
+        chatSessionRepo.deleteByUserId(userId);
+        txRepo.deleteByUserId(userId);
         profileRepo.deleteById(userId);
         auditRepo.anonymizeByUserId(userId); // keep records, remove PII (compliance)
 

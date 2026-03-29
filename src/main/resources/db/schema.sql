@@ -47,7 +47,26 @@ CREATE TABLE IF NOT EXISTS transactions (
 );
 
 -- ============================================================
--- 4. Chat Sessions — groups advisor conversations
+-- 4. Custom Categories — user-defined categories with AI keywords
+-- ============================================================
+CREATE TABLE IF NOT EXISTS custom_categories (
+    id             TEXT NOT NULL,
+    user_id        UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    name           TEXT NOT NULL,
+    icon           TEXT NOT NULL,
+    color          TEXT NOT NULL,
+    bg_color       TEXT NOT NULL,
+    dot_color      TEXT NOT NULL,
+    type           TEXT NOT NULL CHECK (type IN ('income', 'expense')),
+    keywords       TEXT[] DEFAULT '{}',
+    sort_order     INTEGER DEFAULT 0,
+    created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (user_id, id)
+);
+
+-- ============================================================
+-- 5. Chat Sessions — groups advisor conversations
 -- ============================================================
 CREATE TABLE IF NOT EXISTS chat_sessions (
     id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -126,6 +145,7 @@ CREATE INDEX IF NOT EXISTS idx_transactions_embedding
 -- ============================================================
 ALTER TABLE transactions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE business_profiles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE custom_categories ENABLE ROW LEVEL SECURITY;
 ALTER TABLE chat_sessions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE chat_messages ENABLE ROW LEVEL SECURITY;
 -- NOTE: audit_logs intentionally has NO RLS — admin-only access via backend
@@ -139,6 +159,11 @@ CREATE POLICY "profiles: users see own row"
     ON business_profiles FOR ALL
     USING (auth.uid() = id)
     WITH CHECK (auth.uid() = id);
+
+CREATE POLICY "custom_categories: users see own rows"
+    ON custom_categories FOR ALL
+    USING (auth.uid() = user_id)
+    WITH CHECK (auth.uid() = user_id);
 
 CREATE POLICY "chat_sessions: users see own rows"
     ON chat_sessions FOR ALL
@@ -167,6 +192,10 @@ CREATE TRIGGER trg_transactions_updated_at
 
 CREATE TRIGGER trg_profiles_updated_at
     BEFORE UPDATE ON business_profiles
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+
+CREATE TRIGGER trg_custom_categories_updated_at
+    BEFORE UPDATE ON custom_categories
     FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 
 CREATE TRIGGER trg_chat_sessions_updated_at

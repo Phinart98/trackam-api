@@ -35,12 +35,26 @@ public class AppProperties {
     @Value("${trackam.ai.gemini.complex-model}")
     private String geminiComplexModel;
 
-    @Value("${trackam.ai.gemini.embedding-model:text-embedding-004}")
+    @Value("${trackam.ai.gemini.embedding-model:gemini-embedding-001}")
     private String geminiEmbeddingModel;
+
+    // ── Cerebras AI (text-only fallback) ─────────────────────────────────────
+    @Value("${trackam.ai.cerebras.api-key:}")
+    private String cerebrasApiKey;
+
+    @Value("${trackam.ai.cerebras.base-url:https://api.cerebras.ai/v1}")
+    private String cerebrasBaseUrl;
+
+    @Value("${trackam.ai.cerebras.model:gpt-oss-120b}")
+    private String cerebrasModel;
 
     // ── AI limits ────────────────────────────────────────────────────────────
     @Value("${trackam.ai.max-daily-calls:500}")
     private int maxDailyCalls;
+
+    // ── Exchange rates ──────────────────────────────────────────────────────
+    @Value("${trackam.exchange.base-url:https://api.frankfurter.dev}")
+    private String exchangeBaseUrl;
 
     // ── Admin ────────────────────────────────────────────────────────────────
     @Value("${trackam.admin.user-id:}")

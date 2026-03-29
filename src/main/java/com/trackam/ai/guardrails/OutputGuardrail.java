@@ -1,10 +1,16 @@
 package com.trackam.ai.guardrails;
 
 import com.trackam.dto.ParsedTransactionResponse;
+import com.trackam.exception.TrackAmException;
 
 import java.math.BigDecimal;
+import java.time.Instant;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.time.format.DateTimeParseException;
+import java.util.Collections;
+import java.util.List;
 import java.util.Set;
 
 /**
@@ -29,14 +35,20 @@ public final class OutputGuardrail {
 
     private OutputGuardrail() {}
 
+    /** Validates with only built-in categories (used when no user context is available). */
     public static ParsedTransactionResponse validate(ParsedTransactionResponse response) {
+        return validate(response, Collections.emptyList());
+    }
+
+    /** Validates and includes user's custom category IDs as additionally valid categories. */
+    public static ParsedTransactionResponse validate(ParsedTransactionResponse response, List<String> customCategoryIds) {
         if (response == null) {
-            throw new RuntimeException("AI returned empty response. Please try again.");
+            throw new TrackAmException("AI returned empty response. Please try again.");
         }
 
         BigDecimal amount = validateAmount(response.amount());
         String type = validateType(response.type());
-        String category = validateCategory(response.category(), type);
+        String category = validateCategory(response.category(), type, customCategoryIds);
         String date = validateDate(response.date());
         int confidence = validateConfidence(response.confidence());
 
@@ -49,16 +61,17 @@ public final class OutputGuardrail {
             sanitizeText(response.description()),
             sanitizeText(response.vendor()),
             date,
-            confidence
+            confidence,
+            null, null, null  // FX fields populated by AiService after guardrail
         );
     }
 
     private static BigDecimal validateAmount(BigDecimal amount) {
         if (amount == null || amount.compareTo(MIN_AMOUNT) < 0) {
-            throw new RuntimeException("AI returned invalid amount. Please enter manually.");
+            throw new TrackAmException("AI returned invalid amount. Please enter manually.");
         }
         if (amount.compareTo(MAX_AMOUNT) > 0) {
-            throw new RuntimeException("Amount exceeds maximum (1,000,000). Please verify.");
+            throw new TrackAmException("Amount exceeds maximum (1,000,000). Please verify.");
         }
         return amount;
     }
@@ -70,27 +83,37 @@ public final class OutputGuardrail {
         return type.toLowerCase();
     }
 
-    private static String validateCategory(String category, String type) {
-        if (category == null || !VALID_CATEGORIES.contains(category.toLowerCase())) {
-            return "income".equals(type) ? "other_income" : "other_expense";
-        }
-        return category.toLowerCase();
+    private static String validateCategory(String category, String type, List<String> customCategoryIds) {
+        if (category == null) return "income".equals(type) ? "other_income" : "other_expense";
+        String lower = category.toLowerCase();
+        if (VALID_CATEGORIES.contains(lower)) return lower;
+        // Allow custom user-defined category IDs through without downcasing (they may be user-defined slugs)
+        if (customCategoryIds != null && customCategoryIds.contains(category)) return category;
+        return "income".equals(type) ? "other_income" : "other_expense";
     }
 
     private static String validateDate(String date) {
         if (date == null || date.isBlank()) {
-            return LocalDateTime.now().toString();
+            return Instant.now().toString();
         }
         try {
             LocalDateTime parsed = LocalDateTime.parse(date);
-            // Reject dates more than 1 year in the future (likely hallucination)
-            if (parsed.isAfter(LocalDateTime.now().plusYears(1))) {
-                return LocalDateTime.now().toString();
+            if (isTooFarInFuture(parsed)) return Instant.now().toString();
+            return parsed.toInstant(ZoneOffset.UTC).toString();
+        } catch (DateTimeParseException e1) {
+            try {
+                // Date-only format ("2026-03-25") — common from image parser
+                LocalDateTime parsed = LocalDate.parse(date).atStartOfDay();
+                if (isTooFarInFuture(parsed)) return Instant.now().toString();
+                return parsed.toInstant(ZoneOffset.UTC).toString();
+            } catch (DateTimeParseException e2) {
+                return Instant.now().toString();
             }
-            return date;
-        } catch (DateTimeParseException e) {
-            return LocalDateTime.now().toString();
         }
+    }
+
+    private static boolean isTooFarInFuture(LocalDateTime dt) {
+        return dt.isAfter(LocalDateTime.now().plusYears(1));
     }
 
     private static int validateConfidence(int confidence) {
@@ -102,9 +125,7 @@ public final class OutputGuardrail {
 
     private static String sanitizeText(String text) {
         if (text == null) return null;
-        // Remove control characters, limit length
-        return text.replaceAll("[\\p{Cntrl}]", "")
-                   .strip()
-                   .substring(0, Math.min(text.length(), 500));
+        String cleaned = text.replaceAll("[\\p{Cntrl}]", "").strip();
+        return cleaned.substring(0, Math.min(cleaned.length(), 500));
     }
 }

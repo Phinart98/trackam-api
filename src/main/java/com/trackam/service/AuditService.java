@@ -7,7 +7,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 
 @Service
 @RequiredArgsConstructor
@@ -35,7 +36,7 @@ public class AuditService {
     }
 
     public boolean isOverDailyLimit(String userId, int maxCalls) {
-        LocalDateTime since = LocalDateTime.now().minusDays(1);
+        Instant since = Instant.now().minus(1, ChronoUnit.DAYS);
         return repo.countRecentCallsByUser(userId, since) >= maxCalls;
     }
 }

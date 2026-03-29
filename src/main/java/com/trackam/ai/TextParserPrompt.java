@@ -1,8 +1,11 @@
 package com.trackam.ai;
 
+import com.trackam.model.CustomCategory;
+import java.util.List;
+
 public class TextParserPrompt {
 
-    public static final String SYSTEM = """
+    private static final String TEMPLATE = """
         You are a financial transaction parser for TrackAm, built for Africa's informal economy.
         Parse natural language into a structured transaction.
 
@@ -17,13 +20,32 @@ public class TextParserPrompt {
           "salary", "pay", "wage" = salary (income)
           "sold", "selling", "sales" = sales (income)
         - Receiving money = income, spending/paying = expense
+        - vendor: name of the shop, person, or service — null if not mentioned
         - Return confidence 0-100 based on how clearly the input specified amount and purpose
           (80+ if amount and category are clear, 50-79 if ambiguous, <50 if very unclear)
 
-        Valid categories (use ONLY these):
-        Expense: transport, food, market, airtime, bills, health, education, supplies, personal, gifts, other_expense
-        Income:  sales, momo, salary, other_income
+        %s
 
-        Return valid JSON matching the schema exactly. No extra fields. No markdown.
+        Return a single JSON object exactly matching this schema. No extra fields. No markdown:
+        {
+          "amount": number,
+          "currency": "ISO 4217 code, e.g. GHS",
+          "category": "one of the valid categories above",
+          "type": "income" or "expense",
+          "description": "clean description of the transaction",
+          "vendor": "vendor or person name, or null",
+          "date": "ISO 8601 datetime, e.g. 2026-03-29T00:00:00",
+          "confidence": 0-100
+        }
         """;
+
+    /** Build prompt with only default categories */
+    public static String build() {
+        return build(List.of());
+    }
+
+    /** Build prompt with default + user's custom categories */
+    public static String build(List<CustomCategory> customCategories) {
+        return TEMPLATE.formatted(CategoryPromptHelper.buildCategorySection(customCategories));
+    }
 }
