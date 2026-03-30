@@ -8,14 +8,15 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 public interface CustomCategoryRepository extends JpaRepository<CustomCategory, CustomCategoryId> {
 
-    List<CustomCategory> findByUserIdOrderBySortOrderAsc(String userId);
+    List<CustomCategory> findByUserIdOrderBySortOrderAsc(UUID userId);
 
-    Optional<CustomCategory> findByUserIdAndId(String userId, String id);
+    Optional<CustomCategory> findByUserIdAndId(UUID userId, String id);
 
     @Modifying
     @Transactional
-    void deleteByUserIdAndId(String userId, String id);
+    void deleteByUserIdAndId(UUID userId, String id);
 }

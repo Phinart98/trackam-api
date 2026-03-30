@@ -18,6 +18,7 @@ import java.time.ZoneOffset;
 import java.time.format.DateTimeParseException;
 import java.util.List;
 import java.util.Objects;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 /**
@@ -42,7 +43,7 @@ public class AdvisorTools {
         "Returns each expense category with total amount and percentage of total spending. " +
         "Use this when the user asks about where their money goes, spending breakdown, or category analysis.")
     public String getSpendingByCategory(ToolContext ctx) {
-        String userId = extractUserId(ctx);
+        UUID userId = extractUserId(ctx);
         List<Object[]> totals = txRepo.getCategoryTotals(userId);
 
         if (totals.isEmpty()) return "No expense transactions found.";
@@ -70,7 +71,7 @@ public class AdvisorTools {
     public String getTopExpenses(
             @ToolParam(description = "Number of top expenses to return, between 1 and 20") int limit,
             ToolContext ctx) {
-        String userId = extractUserId(ctx);
+        UUID userId = extractUserId(ctx);
         int safeLimit = Math.max(1, Math.min(limit, 20));
         List<Transaction> top = txRepo.findTopExpenses(userId, PageRequest.of(0, safeLimit));
 
@@ -90,7 +91,7 @@ public class AdvisorTools {
             @ToolParam(description = "Year, e.g. 2026") int year,
             @ToolParam(description = "Month number 1-12, e.g. 3 for March") int month,
             ToolContext ctx) {
-        String userId = extractUserId(ctx);
+        UUID userId = extractUserId(ctx);
         Instant from = LocalDate.of(year, month, 1).atStartOfDay().toInstant(ZoneOffset.UTC);
         Instant to = LocalDate.of(year, month, 1).plusMonths(1).atStartOfDay().toInstant(ZoneOffset.UTC);
 
@@ -120,7 +121,7 @@ public class AdvisorTools {
             @ToolParam(description = "Start date in YYYY-MM-DD format") String from,
             @ToolParam(description = "End date in YYYY-MM-DD format") String to,
             ToolContext ctx) {
-        String userId = extractUserId(ctx);
+        UUID userId = extractUserId(ctx);
 
         Instant fromDt;
         Instant toDt;
@@ -143,7 +144,7 @@ public class AdvisorTools {
         "Shows vendor name, category, frequency, and total amount spent. " +
         "Use this when the user asks about regular bills, subscriptions, or repeated spending.")
     public String getRecurringExpenses(ToolContext ctx) {
-        String userId = extractUserId(ctx);
+        UUID userId = extractUserId(ctx);
         List<Object[]> recurring = txRepo.findRecurringVendors(userId);
 
         if (recurring.isEmpty()) {
@@ -165,7 +166,7 @@ public class AdvisorTools {
         "Returns total income, total expenses, net profit, and profit margin percentage. " +
         "Use this when the user asks about profitability, profit margin, or whether they're making money.")
     public String getProfitMargin(ToolContext ctx) {
-        String userId = extractUserId(ctx);
+        UUID userId = extractUserId(ctx);
         BigDecimal income = Objects.requireNonNullElse(txRepo.sumByUserIdAndType(userId, "income"), BigDecimal.ZERO);
         BigDecimal expenses = Objects.requireNonNullElse(txRepo.sumByUserIdAndType(userId, "expense"), BigDecimal.ZERO);
         BigDecimal net = income.subtract(expenses);
@@ -188,7 +189,7 @@ public class AdvisorTools {
     public String getRecentTransactions(
             @ToolParam(description = "Number of recent transactions to return, between 1 and 30") int limit,
             ToolContext ctx) {
-        String userId = extractUserId(ctx);
+        UUID userId = extractUserId(ctx);
         int safeLimit = Math.max(1, Math.min(limit, 30));
         List<Transaction> txs = txRepo.findRecentTransactions(userId, PageRequest.of(0, safeLimit));
 
@@ -203,7 +204,7 @@ public class AdvisorTools {
     public String searchTransactions(
             @ToolParam(description = "Search keyword to find in transaction descriptions") String query,
             ToolContext ctx) {
-        String userId = extractUserId(ctx);
+        UUID userId = extractUserId(ctx);
 
         if (query == null || query.isBlank()) return "Please provide a search term.";
 
@@ -224,10 +225,10 @@ public class AdvisorTools {
 
     // ── Helpers ──────────────────────────────────────────────────────────────
 
-    private String extractUserId(ToolContext ctx) {
-        Object userId = ctx.getContext().get("userId");
-        if (userId == null) throw new IllegalStateException("userId not found in ToolContext");
-        return userId.toString();
+    private UUID extractUserId(ToolContext ctx) {
+        Object raw = ctx.getContext().get("userId");
+        if (raw == null) throw new IllegalStateException("userId not found in ToolContext");
+        return raw instanceof UUID u ? u : UUID.fromString(raw.toString());
     }
 
     private String formatTransactionList(List<Transaction> transactions) {

@@ -20,6 +20,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/categories")
@@ -30,7 +31,7 @@ public class CustomCategoryController {
 
     @GetMapping
     public ResponseEntity<List<CustomCategory>> getAll(@AuthenticationPrincipal Jwt jwt) {
-        return ResponseEntity.ok(categoryRepo.findByUserIdOrderBySortOrderAsc(jwt.getSubject()));
+        return ResponseEntity.ok(categoryRepo.findByUserIdOrderBySortOrderAsc(UUID.fromString(jwt.getSubject())));
     }
 
     @PostMapping
@@ -38,7 +39,7 @@ public class CustomCategoryController {
             @RequestBody @Valid CustomCategoryRequest request,
             @AuthenticationPrincipal Jwt jwt) {
 
-        String userId = jwt.getSubject();
+        UUID userId = UUID.fromString(jwt.getSubject());
 
         Optional<CustomCategory> existing = categoryRepo.findByUserIdAndId(userId, request.getId());
         CustomCategory cat = existing.orElse(CustomCategory.builder()
@@ -66,7 +67,7 @@ public class CustomCategoryController {
     public ResponseEntity<Void> delete(
             @PathVariable String id,
             @AuthenticationPrincipal Jwt jwt) {
-        categoryRepo.deleteByUserIdAndId(jwt.getSubject(), id);
+        categoryRepo.deleteByUserIdAndId(UUID.fromString(jwt.getSubject()), id);
         return ResponseEntity.noContent().build();
     }
 }

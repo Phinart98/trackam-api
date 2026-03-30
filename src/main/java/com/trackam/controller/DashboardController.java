@@ -10,6 +10,8 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.UUID;
+
 @RestController
 @RequestMapping("/api/dashboard")
 @RequiredArgsConstructor
@@ -19,6 +21,6 @@ public class DashboardController {
 
     @GetMapping("/summary")
     public ResponseEntity<DashboardSummaryResponse> getSummary(@AuthenticationPrincipal Jwt jwt) {
-        return ResponseEntity.ok(dashboardService.getSummary(jwt.getSubject()));
+        return ResponseEntity.ok(dashboardService.getSummary(UUID.fromString(jwt.getSubject())));
     }
 }

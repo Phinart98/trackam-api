@@ -15,6 +15,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeParseException;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -24,11 +25,11 @@ public class TransactionService {
     private final TransactionRepository repo;
     private final EmbeddingService embeddingService;
 
-    public Page<Transaction> getAll(String userId, Pageable page) {
+    public Page<Transaction> getAll(UUID userId, Pageable page) {
         return repo.findByUserId(userId, page);
     }
 
-    public Transaction create(TransactionRequest req, String userId) {
+    public Transaction create(TransactionRequest req, UUID userId) {
         Instant date = parseDate(req.date());
         Transaction tx = Transaction.builder()
             .userId(userId)
@@ -82,7 +83,7 @@ public class TransactionService {
         }
     }
 
-    public void delete(String id, String userId) {
+    public void delete(UUID id, UUID userId) {
         Transaction tx = repo.findByIdAndUserId(id, userId)
             .orElseThrow(() -> new TrackAmException("Transaction not found"));
         repo.delete(tx);

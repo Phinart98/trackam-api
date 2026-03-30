@@ -14,6 +14,7 @@ import org.hibernate.annotations.UpdateTimestamp;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.UUID;
 
 @Entity
 @Table(name = "business_profiles")
@@ -25,7 +26,7 @@ import java.time.Instant;
 public class BusinessProfile {
 
     @Id
-    private String id; // FK to Supabase auth.users — same UUID
+    private UUID id; // FK to Supabase auth.users — same UUID
 
     private String businessName;
     private String ownerName;

@@ -14,6 +14,7 @@ import lombok.Setter;
 import org.hibernate.annotations.CreationTimestamp;
 
 import java.time.Instant;
+import java.util.UUID;
 
 @Entity
 @Table(name = "chat_messages")
@@ -26,13 +27,13 @@ public class ChatMessage {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
-    private String id;
+    private UUID id;
 
     @Column(nullable = false)
-    private String userId;
+    private UUID userId;
 
     @Column(name = "session_id", nullable = false)
-    private String sessionId;
+    private UUID sessionId;
 
     @Column(nullable = false)
     private String role; // "user" | "assistant"

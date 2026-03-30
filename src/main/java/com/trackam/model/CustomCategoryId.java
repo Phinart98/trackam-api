@@ -1,6 +1,7 @@
 package com.trackam.model;
 
 import java.io.Serializable;
+import java.util.UUID;
 import lombok.AllArgsConstructor;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
@@ -13,6 +14,6 @@ import lombok.Setter;
 @AllArgsConstructor
 @EqualsAndHashCode
 public class CustomCategoryId implements Serializable {
-    private String userId;
+    private UUID userId;
     private String id;
 }

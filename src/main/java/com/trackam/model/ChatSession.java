@@ -15,6 +15,7 @@ import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.Instant;
+import java.util.UUID;
 
 @Entity
 @Table(name = "chat_sessions")
@@ -27,12 +28,12 @@ public class ChatSession {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
-    private String id;
+    private UUID id;
 
     @Column(nullable = false)
-    private String userId;
+    private UUID userId;
 
-    private String title; // auto-set from first user message
+    private String title;
 
     @CreationTimestamp
     private Instant createdAt;

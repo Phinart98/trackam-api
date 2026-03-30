@@ -17,6 +17,7 @@ import org.hibernate.type.SqlTypes;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.UUID;
 
 @Entity
 @Table(name = "custom_categories")
@@ -29,7 +30,8 @@ import java.util.List;
 public class CustomCategory {
 
     @Id
-    private String userId;
+    @Column(columnDefinition = "uuid")
+    private UUID userId;
 
     @Id
     private String id;

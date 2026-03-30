@@ -4,51 +4,52 @@ import com.trackam.model.Transaction;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
-import org.springframework.data.jpa.repository.Modifying;
-import org.springframework.transaction.annotation.Transactional;
+import java.util.UUID;
 
-public interface TransactionRepository extends JpaRepository<Transaction, String> {
+public interface TransactionRepository extends JpaRepository<Transaction, UUID> {
 
-    Optional<Transaction> findByIdAndUserId(String id, String userId);
+    Optional<Transaction> findByIdAndUserId(UUID id, UUID userId);
 
-    List<Transaction> findByUserIdOrderByDateDesc(String userId);
+    List<Transaction> findByUserIdOrderByDateDesc(UUID userId);
 
-    Page<Transaction> findByUserId(String userId, Pageable pageable);
+    Page<Transaction> findByUserId(UUID userId, Pageable pageable);
 
     List<Transaction> findByUserIdAndDateBetweenOrderByDateDesc(
-        String userId, Instant from, Instant to);
+        UUID userId, Instant from, Instant to);
 
     @Query("SELECT t FROM Transaction t WHERE t.userId = :userId ORDER BY t.date DESC")
-    List<Transaction> findRecentTransactions(@Param("userId") String userId, Pageable pageable);
+    List<Transaction> findRecentTransactions(@Param("userId") UUID userId, Pageable pageable);
 
     @Query("SELECT COALESCE(SUM(t.amount), 0) FROM Transaction t WHERE t.userId = :userId AND t.type = :type")
-    BigDecimal sumByUserIdAndType(@Param("userId") String userId, @Param("type") String type);
+    BigDecimal sumByUserIdAndType(@Param("userId") UUID userId, @Param("type") String type);
 
     @Query("SELECT COUNT(t) FROM Transaction t WHERE t.userId = :userId")
-    long countByUserId(@Param("userId") String userId);
+    long countByUserId(@Param("userId") UUID userId);
 
     @Query(value = "SELECT t.currency FROM transactions t WHERE t.user_id = :userId ORDER BY t.date DESC LIMIT 1", nativeQuery = true)
-    Optional<String> findLatestCurrencyByUserId(@Param("userId") String userId);
+    Optional<String> findLatestCurrencyByUserId(@Param("userId") UUID userId);
 
     @Query("SELECT t.category, SUM(t.amount) FROM Transaction t WHERE t.userId = :userId AND t.type = 'expense' GROUP BY t.category ORDER BY SUM(t.amount) DESC")
-    List<Object[]> getCategoryTotals(@Param("userId") String userId);
+    List<Object[]> getCategoryTotals(@Param("userId") UUID userId);
 
     @Query("SELECT t FROM Transaction t WHERE t.userId = :userId AND t.type = 'expense' ORDER BY t.amount DESC")
-    List<Transaction> findTopExpenses(@Param("userId") String userId, Pageable pageable);
+    List<Transaction> findTopExpenses(@Param("userId") UUID userId, Pageable pageable);
 
     // Keyword search on description (case-insensitive). Caller must escape % and _ with backslash.
     @Query("SELECT t FROM Transaction t WHERE t.userId = :userId AND LOWER(t.description) LIKE LOWER(CONCAT('%', :query, '%')) ESCAPE '\\' ORDER BY t.date DESC")
-    List<Transaction> searchByDescription(@Param("userId") String userId, @Param("query") String query);
+    List<Transaction> searchByDescription(@Param("userId") UUID userId, @Param("query") String query);
 
     @Query("SELECT t.category, SUM(t.amount) FROM Transaction t WHERE t.userId = :userId AND t.type = 'income' GROUP BY t.category ORDER BY SUM(t.amount) DESC")
-    List<Object[]> getIncomeCategoryTotals(@Param("userId") String userId);
+    List<Object[]> getIncomeCategoryTotals(@Param("userId") UUID userId);
 
     @Query(value = """
         SELECT vendor, category, COUNT(*) as tx_count, SUM(amount) as total_amount
@@ -58,12 +59,12 @@ public interface TransactionRepository extends JpaRepository<Transaction, String
         HAVING COUNT(*) >= 3
         ORDER BY tx_count DESC
         """, nativeQuery = true)
-    List<Object[]> findRecurringVendors(@Param("userId") String userId);
+    List<Object[]> findRecurringVendors(@Param("userId") UUID userId);
 
     @Modifying
     @Transactional
     @Query("DELETE FROM Transaction t WHERE t.userId = :userId")
-    void deleteByUserId(@Param("userId") String userId);
+    void deleteByUserId(@Param("userId") UUID userId);
 
     // queryEmbedding must be passed as pgvector text format "[0.1,0.2,...]"
     // CAST avoids JDBC having no float[] → pgvector type handler for bound parameters
@@ -74,7 +75,7 @@ public interface TransactionRepository extends JpaRepository<Transaction, String
         LIMIT :limit
         """, nativeQuery = true)
     List<Transaction> findSimilar(
-        @Param("userId") String userId,
+        @Param("userId") UUID userId,
         @Param("queryEmbedding") String queryEmbedding,
         @Param("limit") int limit);
 }

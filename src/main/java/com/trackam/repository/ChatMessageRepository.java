@@ -6,17 +6,18 @@ import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.UUID;
 
-public interface ChatMessageRepository extends JpaRepository<ChatMessage, String> {
+public interface ChatMessageRepository extends JpaRepository<ChatMessage, UUID> {
 
-    List<ChatMessage> findByUserIdOrderByCreatedAtDesc(String userId);
+    List<ChatMessage> findByUserIdOrderByCreatedAtDesc(UUID userId);
 
-    List<ChatMessage> findBySessionIdOrderByCreatedAtAsc(String sessionId);
+    List<ChatMessage> findBySessionIdOrderByCreatedAtAsc(UUID sessionId);
 
     // Last 10 messages for conversation history context — DESC to get most recent, reversed by caller
-    List<ChatMessage> findTop10BySessionIdOrderByCreatedAtDesc(String sessionId);
+    List<ChatMessage> findTop10BySessionIdOrderByCreatedAtDesc(UUID sessionId);
 
     @Modifying
     @Transactional
-    void deleteByUserId(String userId);
+    void deleteByUserId(UUID userId);
 }

@@ -8,13 +8,14 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.UUID;
 
-public interface ChatSessionRepository extends JpaRepository<ChatSession, String> {
+public interface ChatSessionRepository extends JpaRepository<ChatSession, UUID> {
 
-    List<ChatSession> findByUserIdOrderByUpdatedAtDesc(String userId);
+    List<ChatSession> findByUserIdOrderByUpdatedAtDesc(UUID userId);
 
     @Modifying
     @Transactional
     @Query("DELETE FROM ChatSession s WHERE s.userId = :userId")
-    void deleteByUserId(@Param("userId") String userId);
+    void deleteByUserId(@Param("userId") UUID userId);
 }

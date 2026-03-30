@@ -15,6 +15,7 @@ import org.hibernate.annotations.CreationTimestamp;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.UUID;
 
 @Entity
 @Table(name = "audit_logs")
@@ -27,10 +28,10 @@ public class AuditLog {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
-    private String id;
+    private UUID id;
 
     @Column(nullable = false)
-    private String userId;
+    private UUID userId;
 
     @Column(nullable = false)
     private String operation; // "parse-text" | "parse-image" | "advisor"

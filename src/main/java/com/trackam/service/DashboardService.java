@@ -9,6 +9,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.List;
 import java.util.Objects;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
@@ -17,7 +18,7 @@ public class DashboardService {
 
     private final TransactionRepository repo;
 
-    public DashboardSummaryResponse getSummary(String userId) {
+    public DashboardSummaryResponse getSummary(UUID userId) {
         // SQL aggregates — no full table load into memory
         BigDecimal totalIncome = Objects.requireNonNullElse(repo.sumByUserIdAndType(userId, "income"), BigDecimal.ZERO);
         BigDecimal totalExpenses = Objects.requireNonNullElse(repo.sumByUserIdAndType(userId, "expense"), BigDecimal.ZERO);

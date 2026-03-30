@@ -2,6 +2,7 @@ package com.trackam.controller;
 
 import java.io.IOException;
 import java.util.Map;
+import java.util.UUID;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -33,7 +34,7 @@ public class AiController {
     public ResponseEntity<ParsedTransactionResponse> parseText(
             @RequestBody @Valid ParseTextRequest request,
             @AuthenticationPrincipal Jwt jwt) {
-        String userId = jwt.getSubject();
+        UUID userId = UUID.fromString(jwt.getSubject());
         String currency = request.currency() != null ? request.currency() : DEFAULT_CURRENCY;
         return ResponseEntity.ok(aiService.parseText(request.text(), currency, userId));
     }
@@ -43,7 +44,7 @@ public class AiController {
             @RequestParam("file") MultipartFile file,
             @RequestParam(value = "currency", required = false) String currency,
             @AuthenticationPrincipal Jwt jwt) throws IOException {
-        String userId = jwt.getSubject();
+        UUID userId = UUID.fromString(jwt.getSubject());
         String userCurrency = (currency != null && !currency.isBlank()) ? currency : DEFAULT_CURRENCY;
         return ResponseEntity.ok(aiService.parseImage(file, userCurrency, userId));
     }
@@ -52,7 +53,7 @@ public class AiController {
     public ResponseEntity<Map<String, String>> insight(
             @RequestBody InsightRequest request,
             @AuthenticationPrincipal Jwt jwt) {
-        String userId = jwt.getSubject();
+        UUID userId = UUID.fromString(jwt.getSubject());
         String text = aiService.generateInsight(request, userId);
         return ResponseEntity.ok(Map.of("insight", text));
     }
@@ -61,7 +62,15 @@ public class AiController {
     public ResponseEntity<AdvisorResponse> advisor(
             @RequestBody @Valid AdvisorRequest request,
             @AuthenticationPrincipal Jwt jwt) {
-        String userId = jwt.getSubject();
-        return ResponseEntity.ok(aiService.askAdvisor(request.question(), request.context(), request.sessionId(), userId));
+        UUID userId = UUID.fromString(jwt.getSubject());
+        UUID sessionId = null;
+        if (request.sessionId() != null && !request.sessionId().isBlank()) {
+            try {
+                sessionId = UUID.fromString(request.sessionId());
+            } catch (IllegalArgumentException e) {
+                // invalid UUID format — start a new session
+            }
+        }
+        return ResponseEntity.ok(aiService.askAdvisor(request.question(), request.context(), sessionId, userId));
     }
 }

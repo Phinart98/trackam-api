@@ -18,6 +18,7 @@ import org.springframework.web.bind.annotation.RestController;
 import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.UUID;
 
 /**
  * GDPR / Ghana DPA compliance endpoints.
@@ -37,11 +38,11 @@ public class UserDataController {
 
     @GetMapping("/export")
     public ResponseEntity<Map<String, Object>> export(@AuthenticationPrincipal Jwt jwt) {
-        String userId = jwt.getSubject();
+        UUID userId = UUID.fromString(jwt.getSubject());
 
         Map<String, Object> data = new LinkedHashMap<>();
         data.put("exportedAt", Instant.now().toString());
-        data.put("userId", userId);
+        data.put("userId", userId.toString());
         data.put("profile", profileRepo.findById(userId).orElse(null));
         data.put("transactions", txRepo.findByUserIdOrderByDateDesc(userId));
         data.put("chatSessions", chatSessionRepo.findByUserIdOrderByUpdatedAtDesc(userId));
@@ -53,7 +54,7 @@ public class UserDataController {
     @DeleteMapping("/data")
     @Transactional
     public ResponseEntity<Void> deleteData(@AuthenticationPrincipal Jwt jwt) {
-        String userId = jwt.getSubject();
+        UUID userId = UUID.fromString(jwt.getSubject());
 
         chatMessageRepo.deleteByUserId(userId);
         chatSessionRepo.deleteByUserId(userId);

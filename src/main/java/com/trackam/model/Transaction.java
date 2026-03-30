@@ -19,6 +19,7 @@ import org.hibernate.type.SqlTypes;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.UUID;
 
 @Entity
 @Table(name = "transactions")
@@ -31,10 +32,10 @@ public class Transaction {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
-    private String id;
+    private UUID id;
 
     @Column(nullable = false)
-    private String userId;
+    private UUID userId;
 
     @Column(nullable = false)
     private String type; // "income" | "expense"

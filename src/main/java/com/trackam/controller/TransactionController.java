@@ -21,6 +21,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.UUID;
+
 @RestController
 @RequestMapping("/api/transactions")
 @RequiredArgsConstructor
@@ -32,21 +34,22 @@ public class TransactionController {
     public ResponseEntity<Page<Transaction>> getAll(
             @AuthenticationPrincipal Jwt jwt,
             @PageableDefault(size = 50, sort = "date", direction = Sort.Direction.DESC) Pageable page) {
-        return ResponseEntity.ok(txService.getAll(jwt.getSubject(), page));
+        return ResponseEntity.ok(txService.getAll(UUID.fromString(jwt.getSubject()), page));
     }
 
     @PostMapping
     public ResponseEntity<Transaction> create(
             @RequestBody @Valid TransactionRequest request,
             @AuthenticationPrincipal Jwt jwt) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(txService.create(request, jwt.getSubject()));
+        return ResponseEntity.status(HttpStatus.CREATED)
+            .body(txService.create(request, UUID.fromString(jwt.getSubject())));
     }
 
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> delete(
-            @PathVariable String id,
+            @PathVariable UUID id,
             @AuthenticationPrincipal Jwt jwt) {
-        txService.delete(id, jwt.getSubject());
+        txService.delete(id, UUID.fromString(jwt.getSubject()));
         return ResponseEntity.noContent().build();
     }
 }

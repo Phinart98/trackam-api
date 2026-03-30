@@ -9,6 +9,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -19,7 +20,7 @@ public class AuditService {
 
     /** Async — audit writes never add latency to AI responses. */
     @Async
-    public void log(String userId, String operation, String provider,
+    public void log(UUID userId, String operation, String provider,
                     long latencyMs, boolean success, String error) {
         try {
             repo.save(AuditLog.builder()
@@ -35,7 +36,7 @@ public class AuditService {
         }
     }
 
-    public boolean isOverDailyLimit(String userId, int maxCalls) {
+    public boolean isOverDailyLimit(UUID userId, int maxCalls) {
         Instant since = Instant.now().minus(1, ChronoUnit.DAYS);
         return repo.countRecentCallsByUser(userId, since) >= maxCalls;
     }

@@ -16,6 +16,8 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.UUID;
+
 @RestController
 @RequestMapping("/api/profile")
 @RequiredArgsConstructor
@@ -25,7 +27,8 @@ public class ProfileController {
 
     @GetMapping
     public ResponseEntity<BusinessProfile> getProfile(@AuthenticationPrincipal Jwt jwt) {
-        return profileRepo.findById(jwt.getSubject())
+        UUID userId = UUID.fromString(jwt.getSubject());
+        return profileRepo.findById(userId)
             .map(ResponseEntity::ok)
             .orElse(ResponseEntity.notFound().build());
     }
@@ -35,7 +38,7 @@ public class ProfileController {
     public ResponseEntity<BusinessProfile> upsertProfile(
             @RequestBody @Valid ProfileRequest req,
             @AuthenticationPrincipal Jwt jwt) {
-        String userId = jwt.getSubject();
+        UUID userId = UUID.fromString(jwt.getSubject());
         boolean exists = profileRepo.existsById(userId);
         BusinessProfile profile = BusinessProfile.builder()
             .id(userId)

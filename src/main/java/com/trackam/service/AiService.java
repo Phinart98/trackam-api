@@ -39,6 +39,7 @@ import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
@@ -90,7 +91,7 @@ public class AiService {
     }
 
     /** Load user's custom categories for dynamic prompt building */
-    private List<CustomCategory> getUserCategories(String userId) {
+    private List<CustomCategory> getUserCategories(UUID userId) {
         try {
             return categoryRepo.findByUserIdOrderBySortOrderAsc(userId);
         } catch (Exception e) {
@@ -100,7 +101,7 @@ public class AiService {
     }
 
     /** Text parsing: primary = Gemini Flash-Lite (cheap), fallbacks = Groq → Gemini Flash → Cerebras */
-    public ParsedTransactionResponse parseText(String text, String currency, String userId) {
+    public ParsedTransactionResponse parseText(String text, String currency, UUID userId) {
         checkDailyLimit(userId);
         InputGuardrail.validateText(text);
 
@@ -118,7 +119,7 @@ public class AiService {
     }
 
     /** Image parsing: primary = Groq/Llama 4 Scout (best vision), fallback = Gemini Flash */
-    public ParsedTransactionResponse parseImage(MultipartFile file, String currency, String userId) throws IOException {
+    public ParsedTransactionResponse parseImage(MultipartFile file, String currency, UUID userId) throws IOException {
         checkDailyLimit(userId);
         InputGuardrail.validateImage(file);
 
@@ -214,7 +215,7 @@ public class AiService {
      */
     @Transactional
     public AdvisorResponse askAdvisor(String question, AdvisorRequest.AdvisorContext ctx,
-                                      String sessionId, String userId) {
+                                      UUID sessionId, UUID userId) {
         checkDailyLimit(userId);
         InputGuardrail.validateAdvisorQuestion(question);
 
@@ -263,14 +264,14 @@ public class AiService {
             ChatMessage.builder().userId(userId).sessionId(session.getId()).role("assistant").content(reply).build()
         ));
 
-        return new AdvisorResponse(reply, session.getId());
+        return new AdvisorResponse(reply, session.getId().toString());
     }
 
     /**
      * Fallback advisor: stuffs all user transactions into the prompt as context.
      * Works for open-ended questions where no specific tool matches.
      */
-    private String advisorWithContextStuffing(String userId, String question, String baseSystemPrompt) {
+    private String advisorWithContextStuffing(UUID userId, String question, String baseSystemPrompt) {
         List<Transaction> allTxs = txRepo.findRecentTransactions(userId, PageRequest.of(0, 100));
         String txSummary = allTxs.isEmpty()
             ? "No transactions recorded yet."
@@ -291,7 +292,7 @@ public class AiService {
      * Uses Gemini Flash-Lite (cheapest) — no tool-calling, no history, fast response.
      * Refreshed client-side only when transactions change or 6h have elapsed.
      */
-    public String generateInsight(InsightRequest req, String userId) {
+    public String generateInsight(InsightRequest req, UUID userId) {
         checkDailyLimit(userId);
         String cur = req.currency() != null ? req.currency() : "GHS";
         String context = InsightPrompt.buildContext(
@@ -338,7 +339,7 @@ public class AiService {
      * Generic fallback chain: tries each provider in order, stops on first success.
      * Every attempt (success or failure) is written to audit_logs.
      */
-    private <T> T callWithFallback(String userId, String operation,
+    private <T> T callWithFallback(UUID userId, String operation,
                                     List<String> providerOrder,
                                     String system, String user, Class<T> type) {
         Exception lastException = null;
@@ -377,8 +378,8 @@ public class AiService {
         };
     }
 
-    private ChatSession resolveSession(String sessionId, String userId, String firstMessage) {
-        if (sessionId != null && !sessionId.isBlank()) {
+    private ChatSession resolveSession(UUID sessionId, UUID userId, String firstMessage) {
+        if (sessionId != null) {
             return chatSessionRepo.findById(sessionId)
                 .filter(s -> s.getUserId().equals(userId))
                 .orElseGet(() -> createSession(userId, firstMessage));
@@ -386,7 +387,7 @@ public class AiService {
         return createSession(userId, firstMessage);
     }
 
-    private ChatSession createSession(String userId, String firstMessage) {
+    private ChatSession createSession(UUID userId, String firstMessage) {
         String title = firstMessage != null && firstMessage.length() > 50
             ? firstMessage.substring(0, 50) + "..."
             : firstMessage;
@@ -406,7 +407,7 @@ public class AiService {
         return sb.toString();
     }
 
-    private void checkDailyLimit(String userId) {
+    private void checkDailyLimit(UUID userId) {
         if (auditService.isOverDailyLimit(userId, props.getMaxDailyCalls())) {
             throw new TrackAmException("Daily AI call limit reached. Try again tomorrow.");
         }
