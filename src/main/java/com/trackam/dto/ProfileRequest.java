@@ -4,10 +4,11 @@ import jakarta.validation.constraints.NotBlank;
 import java.math.BigDecimal;
 
 public record ProfileRequest(
-    @NotBlank String businessName,
+    String businessName,
     String ownerName,
     String businessType,
     @NotBlank String currency,
     String country,
-    BigDecimal monthlyBudget
+    BigDecimal monthlyBudget,
+    boolean onboarded
 ) {}

@@ -48,6 +48,7 @@ public class ProfileController {
             .currency(req.currency())
             .country(req.country())
             .monthlyBudget(req.monthlyBudget())
+            .onboarded(req.onboarded())
             .build();
         BusinessProfile saved = profileRepo.save(profile);
         return exists

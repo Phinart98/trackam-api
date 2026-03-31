@@ -40,6 +40,9 @@ public class BusinessProfile {
     @Column(precision = 19, scale = 4)
     private BigDecimal monthlyBudget;
 
+    @Column(nullable = false)
+    private boolean onboarded;
+
     @CreationTimestamp
     private Instant createdAt;
 

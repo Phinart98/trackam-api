@@ -19,6 +19,7 @@ CREATE TABLE IF NOT EXISTS business_profiles (
     currency       TEXT NOT NULL DEFAULT 'GHS',
     country        TEXT DEFAULT 'GH',
     monthly_budget DECIMAL(19, 4),  -- 19,4 for precision + future currencies
+    onboarded      BOOLEAN NOT NULL DEFAULT FALSE,
     created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
