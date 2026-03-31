@@ -143,7 +143,12 @@ public class SecurityConfig {
                 "trackam.supabase.project-url must be set for JWT issuer validation");
         }
 
-        SecretKeySpec key = new SecretKeySpec(java.util.Base64.getDecoder().decode(secret), "HmacSHA256");
+        byte[] keyBytes = java.util.Base64.getDecoder().decode(secret);
+        if (keyBytes.length < 32) {
+            throw new IllegalStateException(
+                "Decoded SUPABASE_JWT_SECRET is too short (" + keyBytes.length + " bytes) — minimum 32 required. Ensure the value is Base64-encoded.");
+        }
+        SecretKeySpec key = new SecretKeySpec(keyBytes, "HmacSHA256");
         NimbusJwtDecoder decoder = NimbusJwtDecoder.withSecretKey(key).build();
 
         List<OAuth2TokenValidator<Jwt>> validators = new ArrayList<>();

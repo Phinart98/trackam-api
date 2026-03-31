@@ -6,8 +6,6 @@ import com.trackam.model.Transaction;
 import com.trackam.repository.TransactionRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
@@ -15,6 +13,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeParseException;
+import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -25,8 +24,8 @@ public class TransactionService {
     private final TransactionRepository repo;
     private final EmbeddingService embeddingService;
 
-    public Page<Transaction> getAll(UUID userId, Pageable page) {
-        return repo.findByUserId(userId, page);
+    public List<Transaction> getAll(UUID userId) {
+        return repo.findByUserIdOrderByDateDesc(userId);
     }
 
     public Transaction create(TransactionRequest req, UUID userId) {
