@@ -143,7 +143,7 @@ public class SecurityConfig {
                 "trackam.supabase.project-url must be set for JWT issuer validation");
         }
 
-        SecretKeySpec key = new SecretKeySpec(secret.getBytes(java.nio.charset.StandardCharsets.UTF_8), "HmacSHA256");
+        SecretKeySpec key = new SecretKeySpec(java.util.Base64.getDecoder().decode(secret), "HmacSHA256");
         NimbusJwtDecoder decoder = NimbusJwtDecoder.withSecretKey(key).build();
 
         List<OAuth2TokenValidator<Jwt>> validators = new ArrayList<>();
