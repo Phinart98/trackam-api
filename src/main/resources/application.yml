@@ -72,8 +72,8 @@ trackam:
 
 logging:
   level:
-    org.springframework.security: DEBUG
-    org.springframework.security.oauth2: DEBUG
+    root: WARN
+    com.trackam: INFO
 
 management:
   endpoints:
