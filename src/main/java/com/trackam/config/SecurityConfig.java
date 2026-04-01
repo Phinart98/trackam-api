@@ -20,6 +20,7 @@ import org.springframework.security.oauth2.jwt.JwtClaimValidator;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.JwtIssuerValidator;
 import org.springframework.security.oauth2.jwt.JwtTimestampValidator;
+import org.springframework.security.oauth2.jose.jws.SignatureAlgorithm;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.security.web.SecurityFilterChain;
@@ -140,7 +141,10 @@ public class SecurityConfig {
         // Supabase uses ES256 (asymmetric ECDSA) — verify via public keys from JWKS,
         // not a shared secret. Spring fetches and caches the key set automatically.
         String jwksUri = projectUrl + "/auth/v1/.well-known/jwks.json";
-        NimbusJwtDecoder decoder = NimbusJwtDecoder.withJwkSetUri(jwksUri).build();
+        // Must specify ES256 — withJwkSetUri() defaults to RS256 only and silently rejects ES256 tokens
+        NimbusJwtDecoder decoder = NimbusJwtDecoder.withJwkSetUri(jwksUri)
+            .jwsAlgorithm(SignatureAlgorithm.ES256)
+            .build();
 
         List<OAuth2TokenValidator<Jwt>> validators = new ArrayList<>();
         validators.add(new JwtTimestampValidator());
