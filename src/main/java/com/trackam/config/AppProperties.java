@@ -13,7 +13,8 @@ import org.springframework.stereotype.Component;
 public class AppProperties {
 
     // ── Auth / Supabase ──────────────────────────────────────────────────────
-    @Value("${trackam.supabase.jwt-secret}")
+    // Kept for reference — JWT verification now uses JWKS (ES256), not this secret
+    @Value("${trackam.supabase.jwt-secret:}")
     private String supabaseJwtSecret;
 
     @Value("${trackam.supabase.project-url:}")

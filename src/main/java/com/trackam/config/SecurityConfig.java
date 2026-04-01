@@ -30,7 +30,6 @@ import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import org.springframework.web.filter.OncePerRequestFilter;
 
-import javax.crypto.spec.SecretKeySpec;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Deque;
@@ -132,24 +131,16 @@ public class SecurityConfig {
 
     @Bean
     public JwtDecoder jwtDecoder() {
-        String secret = props.getSupabaseJwtSecret();
-        if (secret == null || secret.isBlank() || secret.length() < 32) {
-            throw new IllegalStateException(
-                "trackam.supabase.jwt-secret is missing or too short — minimum 32 characters required");
-        }
         String projectUrl = props.getSupabaseProjectUrl();
         if (projectUrl == null || projectUrl.isBlank()) {
             throw new IllegalStateException(
-                "trackam.supabase.project-url must be set for JWT issuer validation");
+                "SUPABASE_URL must be set — required to build the JWKS endpoint for JWT verification");
         }
 
-        byte[] keyBytes = java.util.Base64.getDecoder().decode(secret);
-        if (keyBytes.length < 32) {
-            throw new IllegalStateException(
-                "Decoded SUPABASE_JWT_SECRET is too short (" + keyBytes.length + " bytes) — minimum 32 required. Ensure the value is Base64-encoded.");
-        }
-        SecretKeySpec key = new SecretKeySpec(keyBytes, "HmacSHA256");
-        NimbusJwtDecoder decoder = NimbusJwtDecoder.withSecretKey(key).build();
+        // Supabase uses ES256 (asymmetric ECDSA) — verify via public keys from JWKS,
+        // not a shared secret. Spring fetches and caches the key set automatically.
+        String jwksUri = projectUrl + "/auth/v1/.well-known/jwks.json";
+        NimbusJwtDecoder decoder = NimbusJwtDecoder.withJwkSetUri(jwksUri).build();
 
         List<OAuth2TokenValidator<Jwt>> validators = new ArrayList<>();
         validators.add(new JwtTimestampValidator());
