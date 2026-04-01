@@ -144,8 +144,11 @@ public class SecurityConfig {
 
         List<OAuth2TokenValidator<Jwt>> validators = new ArrayList<>();
         validators.add(new JwtTimestampValidator());
-        validators.add(new JwtClaimValidator<List<String>>(JwtClaimNames.AUD,
-            aud -> aud != null && aud.contains("authenticated")));
+        // Supabase sends aud as a plain string "authenticated", not an array.
+        // The JWT spec allows both shapes, so we handle both to avoid ClassCastException.
+        validators.add(new JwtClaimValidator<Object>(JwtClaimNames.AUD,
+            aud -> (aud instanceof List<?> list && list.contains("authenticated"))
+                || "authenticated".equals(aud)));
         validators.add(new JwtIssuerValidator(projectUrl + "/auth/v1"));
 
         decoder.setJwtValidator(new DelegatingOAuth2TokenValidator<>(validators));
