@@ -67,7 +67,26 @@ CREATE TABLE IF NOT EXISTS custom_categories (
 );
 
 -- ============================================================
--- 5. Chat Sessions — groups advisor conversations
+-- 5. Goals — savings targets with progress tracking
+-- ============================================================
+CREATE TABLE IF NOT EXISTS goals (
+    id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id        UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    name           TEXT NOT NULL,
+    target_amount  DECIMAL(19, 4) NOT NULL CHECK (target_amount > 0),
+    current_amount DECIMAL(19, 4) NOT NULL DEFAULT 0 CHECK (current_amount >= 0),
+    currency       TEXT NOT NULL DEFAULT 'GHS',
+    icon           TEXT NOT NULL DEFAULT 'i-lucide-trending-up',
+    color          TEXT NOT NULL DEFAULT 'text-emerald-600',
+    bg_color       TEXT NOT NULL DEFAULT 'bg-emerald-100',
+    dot_color      TEXT NOT NULL DEFAULT '#10b981',
+    deadline       DATE,
+    created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- ============================================================
+-- 6. Chat Sessions — groups advisor conversations
 -- ============================================================
 CREATE TABLE IF NOT EXISTS chat_sessions (
     id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -117,6 +136,10 @@ CREATE TABLE IF NOT EXISTS audit_logs (
 CREATE INDEX IF NOT EXISTS idx_transactions_user_date
     ON transactions(user_id, date DESC);
 
+-- Goals: user's goals, oldest first (consistent ordering)
+CREATE INDEX IF NOT EXISTS idx_goals_user
+    ON goals(user_id, created_at ASC);
+
 -- Transactions: covering index for dashboard SUM aggregates (index-only scan)
 -- Enables: SELECT SUM(amount) WHERE user_id = ? AND type = ? without touching heap
 CREATE INDEX IF NOT EXISTS idx_transactions_user_type_amount
@@ -145,6 +168,7 @@ CREATE INDEX IF NOT EXISTS idx_transactions_embedding
 -- 8. Row Level Security (users see only their own data)
 -- ============================================================
 ALTER TABLE transactions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE goals ENABLE ROW LEVEL SECURITY;
 ALTER TABLE business_profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE custom_categories ENABLE ROW LEVEL SECURITY;
 ALTER TABLE chat_sessions ENABLE ROW LEVEL SECURITY;
@@ -153,6 +177,11 @@ ALTER TABLE chat_messages ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "transactions: users see own rows"
     ON transactions FOR ALL
+    USING (auth.uid() = user_id)
+    WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "goals: users see own rows"
+    ON goals FOR ALL
     USING (auth.uid() = user_id)
     WITH CHECK (auth.uid() = user_id);
 
@@ -186,6 +215,10 @@ BEGIN
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_goals_updated_at
+    BEFORE UPDATE ON goals
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 
 CREATE TRIGGER trg_transactions_updated_at
     BEFORE UPDATE ON transactions

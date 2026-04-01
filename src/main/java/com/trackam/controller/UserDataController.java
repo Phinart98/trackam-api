@@ -4,6 +4,7 @@ import com.trackam.repository.AuditLogRepository;
 import com.trackam.repository.BusinessProfileRepository;
 import com.trackam.repository.ChatMessageRepository;
 import com.trackam.repository.ChatSessionRepository;
+import com.trackam.repository.GoalRepository;
 import com.trackam.repository.TransactionRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -32,6 +33,7 @@ public class UserDataController {
 
     private final BusinessProfileRepository profileRepo;
     private final TransactionRepository txRepo;
+    private final GoalRepository goalRepo;
     private final ChatMessageRepository chatMessageRepo;
     private final ChatSessionRepository chatSessionRepo;
     private final AuditLogRepository auditRepo;
@@ -45,6 +47,7 @@ public class UserDataController {
         data.put("userId", userId.toString());
         data.put("profile", profileRepo.findById(userId).orElse(null));
         data.put("transactions", txRepo.findByUserIdOrderByDateDesc(userId));
+        data.put("goals", goalRepo.findByUserIdOrderByCreatedAtAsc(userId));
         data.put("chatSessions", chatSessionRepo.findByUserIdOrderByUpdatedAtDesc(userId));
         data.put("chatMessages", chatMessageRepo.findByUserIdOrderByCreatedAtDesc(userId));
 
@@ -58,6 +61,7 @@ public class UserDataController {
 
         chatMessageRepo.deleteByUserId(userId);
         chatSessionRepo.deleteByUserId(userId);
+        goalRepo.deleteByUserId(userId);
         txRepo.deleteByUserId(userId);
         profileRepo.deleteById(userId);
         auditRepo.anonymizeByUserId(userId); // keep records, remove PII (compliance)
