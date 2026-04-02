@@ -63,6 +63,7 @@ public class Transaction {
     private Integer confidence;
 
     // Hibernate 6.4+ native vector support — binds float[] to pgvector's vector type
+    @com.fasterxml.jackson.annotation.JsonIgnore
     @Column(columnDefinition = "vector(768)")
     @JdbcTypeCode(SqlTypes.VECTOR)
     @Array(length = 768)

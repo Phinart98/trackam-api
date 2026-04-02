@@ -72,11 +72,15 @@ public class TransactionService {
 
     private static Instant parseDate(String raw) {
         try {
-            return LocalDateTime.parse(raw).toInstant(ZoneOffset.UTC);
+            return Instant.parse(raw);                                    // "2026-04-01T00:00:00Z"
         } catch (DateTimeParseException ignored) {
         }
         try {
-            return LocalDate.parse(raw).atStartOfDay().toInstant(ZoneOffset.UTC);
+            return LocalDateTime.parse(raw).toInstant(ZoneOffset.UTC);   // "2026-04-01T00:00:00"
+        } catch (DateTimeParseException ignored) {
+        }
+        try {
+            return LocalDate.parse(raw).atStartOfDay().toInstant(ZoneOffset.UTC);  // "2026-04-01"
         } catch (DateTimeParseException e) {
             throw new TrackAmException("Invalid date format. Use YYYY-MM-DD or ISO date-time.");
         }
