@@ -96,13 +96,21 @@ public final class OutputGuardrail {
         if (date == null || date.isBlank()) {
             return Instant.now().toString();
         }
+        // Attempt 1: full ISO instant with Z or offset ("2026-04-02T00:00:00Z")
+        try {
+            Instant parsed = Instant.parse(date);
+            LocalDateTime ldt = parsed.atZone(ZoneOffset.UTC).toLocalDateTime();
+            if (isTooFarInFuture(ldt)) return Instant.now().toString();
+            return parsed.toString();
+        } catch (DateTimeParseException ignored) {}
+        // Attempt 2: local datetime without timezone ("2026-04-02T00:00:00")
         try {
             LocalDateTime parsed = LocalDateTime.parse(date);
             if (isTooFarInFuture(parsed)) return Instant.now().toString();
             return parsed.toInstant(ZoneOffset.UTC).toString();
         } catch (DateTimeParseException e1) {
             try {
-                // Date-only format ("2026-03-25") — common from image parser
+                // Attempt 3: date-only ("2026-04-02") — common from image parser
                 LocalDateTime parsed = LocalDate.parse(date).atStartOfDay();
                 if (isTooFarInFuture(parsed)) return Instant.now().toString();
                 return parsed.toInstant(ZoneOffset.UTC).toString();
@@ -112,8 +120,9 @@ public final class OutputGuardrail {
         }
     }
 
+    // Financial transactions cannot be in the future — clamp anything beyond tomorrow
     private static boolean isTooFarInFuture(LocalDateTime dt) {
-        return dt.isAfter(LocalDateTime.now().plusYears(1));
+        return dt.isAfter(LocalDateTime.now(ZoneOffset.UTC).plusDays(1));
     }
 
     private static int validateConfidence(int confidence) {

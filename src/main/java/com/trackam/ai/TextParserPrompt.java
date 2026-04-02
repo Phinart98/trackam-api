@@ -10,7 +10,11 @@ public class TextParserPrompt {
         Parse natural language into a structured transaction.
 
         Rules:
-        - Extract: amount, currency (default GHS unless specified), category, type (income/expense), description, vendor, date (default today in ISO 8601)
+        - Extract: amount, currency, category, type (income/expense), description, vendor
+        - For date: today's date is provided in context — use it when user says "today", "just now", or gives no date; subtract appropriately for "yesterday" (-1 day), "last week" (-7 days), etc.
+        - Currency detection — use ISO 4217 code:
+          $ = USD, € = EUR, £ = GBP, ¥ = JPY, ₦ = NGN, R = ZAR, KSh = KES, ₵ or "cedis" = GHS
+          If NO currency symbol or word is present, use the currency from the "Currency context" line
         - Understand informal African English:
           "trotro" or "mate" = transport
           "chop bar", "waakye", "jollof" = food

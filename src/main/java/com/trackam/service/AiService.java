@@ -108,7 +108,8 @@ public class AiService {
         List<CustomCategory> userCategories = getUserCategories(userId);
         List<String> customCategoryIds = userCategories.stream().map(CustomCategory::getId).toList();
         String systemPrompt = TextParserPrompt.build(userCategories);
-        String userPrompt = "Currency context: " + currency + "\nParse this transaction: " + text;
+        String today = java.time.LocalDate.now(ZoneOffset.UTC).toString();
+        String userPrompt = "Today's date: " + today + "\nCurrency context: " + currency + "\nParse this transaction: " + text;
         ParsedTransactionResponse result = callWithFallback(
             userId, "parse-text",
             List.of("gemini-lite", "groq", "gemini-flash", "cerebras"),
@@ -136,9 +137,10 @@ public class AiService {
             : MimeTypeUtils.IMAGE_JPEG;
 
         // Build message once — imageResource wraps in-memory bytes, safe to reuse
+        String todayForImage = java.time.LocalDate.now(ZoneOffset.UTC).toString();
         var media = new Media(mimeType, imageResource);
         var userMessage = UserMessage.builder()
-            .text("Extract all transactions from this image. Return structured JSON.")
+            .text("Today's date: " + todayForImage + "\nExtract all transactions from this image. Return structured JSON.")
             .media(List.of(media))
             .build();
 
