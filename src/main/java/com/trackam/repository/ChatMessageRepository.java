@@ -3,6 +3,8 @@ package com.trackam.repository;
 import com.trackam.model.ChatMessage;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
@@ -17,7 +19,9 @@ public interface ChatMessageRepository extends JpaRepository<ChatMessage, UUID> 
     // Last 6 messages (3 turns) — sliding window keeps immediate context without token bloat
     List<ChatMessage> findTop6BySessionIdOrderByCreatedAtDesc(UUID sessionId);
 
+    // Bulk JPQL delete — avoids SELECT-then-remove pattern that triggers optimistic locking errors
     @Modifying
     @Transactional
-    void deleteByUserId(UUID userId);
+    @Query("DELETE FROM ChatMessage m WHERE m.userId = :userId")
+    void deleteByUserId(@Param("userId") UUID userId);
 }

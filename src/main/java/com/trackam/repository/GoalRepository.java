@@ -15,7 +15,11 @@ import java.util.UUID;
 public interface GoalRepository extends JpaRepository<Goal, UUID> {
     List<Goal> findByUserIdOrderByCreatedAtAsc(UUID userId);
     Optional<Goal> findByIdAndUserId(UUID id, UUID userId);
-    void deleteByUserId(UUID userId);
+    // Bulk JPQL delete — avoids SELECT-then-remove pattern that triggers optimistic locking errors
+    @Modifying
+    @Transactional
+    @Query("DELETE FROM Goal g WHERE g.userId = :userId")
+    void deleteByUserId(@Param("userId") UUID userId);
 
     @Modifying
     @Transactional
