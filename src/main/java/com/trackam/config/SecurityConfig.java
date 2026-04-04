@@ -87,12 +87,13 @@ public class SecurityConfig {
                 timestamps = userWindows.computeIfAbsent(userId, k -> new ConcurrentLinkedDeque<>());
                 synchronized (timestamps) {
                     if (userWindows.get(userId) != timestamps) continue; // stale deque — retry
+                    boolean hadEntries = !timestamps.isEmpty();
                     while (!timestamps.isEmpty() && timestamps.peekFirst() < windowStart) {
                         timestamps.pollFirst();
                     }
-                    // Evict empty deques — prevents unbounded map growth for inactive users.
-                    // The retry loop will recreate a fresh deque via computeIfAbsent.
-                    if (timestamps.isEmpty()) {
+                    // Evict only if we actually cleared stale entries and the deque is now empty.
+                    // DO NOT evict a freshly-created empty deque — that causes an infinite loop.
+                    if (hadEntries && timestamps.isEmpty()) {
                         userWindows.remove(userId, timestamps);
                         continue;
                     }
