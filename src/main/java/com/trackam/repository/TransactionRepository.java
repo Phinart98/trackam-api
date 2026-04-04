@@ -66,6 +66,13 @@ public interface TransactionRepository extends JpaRepository<Transaction, UUID> 
     @Query("DELETE FROM Transaction t WHERE t.userId = :userId")
     void deleteByUserId(@Param("userId") UUID userId);
 
+    @Modifying
+    @Transactional
+    @Query("UPDATE Transaction t SET t.amount = t.amount * :factor, t.currency = :newCurrency WHERE t.userId = :userId")
+    int bulkConvertCurrency(@Param("userId") UUID userId,
+                            @Param("factor") java.math.BigDecimal factor,
+                            @Param("newCurrency") String newCurrency);
+
     // queryEmbedding must be passed as pgvector text format "[0.1,0.2,...]"
     // CAST avoids JDBC having no float[] → pgvector type handler for bound parameters
     @Query(value = """

@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
@@ -46,5 +47,14 @@ public class TransactionController {
             @AuthenticationPrincipal Jwt jwt) {
         txService.delete(id, UUID.fromString(jwt.getSubject()));
         return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/convert-currency")
+    public ResponseEntity<java.util.Map<String, Object>> convertCurrency(
+            @RequestParam String from,
+            @RequestParam String to,
+            @AuthenticationPrincipal Jwt jwt) {
+        int updated = txService.convertCurrency(UUID.fromString(jwt.getSubject()), from, to);
+        return ResponseEntity.ok(java.util.Map.of("updated", updated, "from", from, "to", to));
     }
 }

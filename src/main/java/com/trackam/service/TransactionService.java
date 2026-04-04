@@ -4,10 +4,12 @@ import com.trackam.dto.TransactionRequest;
 import com.trackam.exception.TrackAmException;
 import com.trackam.model.Transaction;
 import com.trackam.repository.TransactionRepository;
+import com.trackam.service.ExchangeRateService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -23,6 +25,7 @@ public class TransactionService {
 
     private final TransactionRepository repo;
     private final EmbeddingService embeddingService;
+    private final ExchangeRateService fxService;
 
     public List<Transaction> getAll(UUID userId) {
         return repo.findByUserIdOrderByDateDescCreatedAtDesc(userId);
@@ -90,5 +93,13 @@ public class TransactionService {
         Transaction tx = repo.findByIdAndUserId(id, userId)
             .orElseThrow(() -> new TrackAmException("Transaction not found"));
         repo.delete(tx);
+    }
+
+    /** Converts all user transactions to a new currency using today's FX rate. */
+    public int convertCurrency(UUID userId, String fromCurrency, String toCurrency) {
+        if (fromCurrency == null || toCurrency == null || fromCurrency.equalsIgnoreCase(toCurrency)) return 0;
+        ExchangeRateService.ExchangeResult result = fxService.convert(BigDecimal.ONE, fromCurrency, toCurrency, null);
+        if (result == null) throw new TrackAmException("Could not fetch exchange rate for " + fromCurrency + " → " + toCurrency);
+        return repo.bulkConvertCurrency(userId, result.rate(), toCurrency);
     }
 }
