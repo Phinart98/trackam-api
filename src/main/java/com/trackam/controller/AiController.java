@@ -62,7 +62,7 @@ public class AiController {
     @PostMapping("/transcribe")
     public ResponseEntity<Map<String, String>> transcribe(
             @RequestParam("audio") MultipartFile audio,
-            @AuthenticationPrincipal Jwt jwt) throws IOException {
+            @AuthenticationPrincipal Jwt jwt) {
         InputGuardrail.validateAudio(audio);
         UUID userId = UUID.fromString(jwt.getSubject());
         String transcript = aiService.transcribeAudio(audio, userId);

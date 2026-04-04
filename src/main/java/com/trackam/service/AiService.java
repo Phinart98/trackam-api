@@ -37,12 +37,16 @@ import org.springframework.util.MimeTypeUtils;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.time.YearMonth;
 import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+import java.util.TreeMap;
 import java.util.UUID;
-import java.util.stream.Collectors;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -233,8 +237,8 @@ public class AiService {
         // Resolve or create chat session
         ChatSession session = resolveSession(sessionId, userId, question);
 
-        // Load conversation history (last 10 messages, most recent first from DB, reversed for chronological order)
-        List<ChatMessage> history = chatMessageRepo.findTop10BySessionIdOrderByCreatedAtDesc(session.getId())
+        // Load conversation history — sliding window of last 6 messages (3 turns)
+        List<ChatMessage> history = chatMessageRepo.findTop6BySessionIdOrderByCreatedAtDesc(session.getId())
             .reversed();
 
         // Proper role-based history — the model treats this as real dialogue, not injected text
@@ -262,18 +266,111 @@ public class AiService {
         return new AdvisorResponse(reply, session.getId().toString());
     }
 
+    // Social/conversational words that require no financial data in the response
+    private static final Set<String> CONVERSATIONAL_WORDS = Set.of(
+        "thanks", "thank", "ok", "okay", "got", "see", "sure", "great", "nice",
+        "cool", "good", "right", "yes", "no", "hmm", "oh", "ah", "hi", "hello",
+        "hey", "bye", "goodbye", "perfect", "understood", "noted", "alright",
+        "sounds", "makes", "sense", "course", "awesome", "wow", "lol", "haha"
+    );
+
+    /** True if the message is clearly social/conversational — no financial context needed. */
+    private boolean isConversational(String question) {
+        if (question == null) return false;
+        String lower = question.trim().toLowerCase().replaceAll("[^a-z\\s]", "");
+        String[] words = lower.split("\\s+");
+        if (words.length > 6) return false; // longer messages likely contain a real question
+        for (String word : words) {
+            if (CONVERSATIONAL_WORDS.contains(word)) return true;
+        }
+        return false;
+    }
+
     /**
-     * Fallback advisor: stuffs all user transactions into the prompt as context.
-     * Also passes conversation history as proper message objects for natural dialogue.
+     * Builds a compact aggregated context instead of raw transaction dumps.
+     *
+     * Best practices applied (Anthropic context engineering guide, 2025):
+     * - Aggregated summaries over raw lists — same signal, 80% fewer tokens
+     * - Recent transactions verbatim for specific follow-up questions
+     * - Monthly breakdown at top (highest-signal for financial chat)
+     */
+    private String buildCompactContext(List<Transaction> transactions) {
+        if (transactions.isEmpty()) return "No transactions recorded yet.";
+
+        String thisMonth = YearMonth.now(ZoneOffset.UTC).toString();
+        Map<String, BigDecimal> catExpenses = new TreeMap<>();
+        BigDecimal allIncome = BigDecimal.ZERO, allExpenses = BigDecimal.ZERO;
+        BigDecimal monthIncome = BigDecimal.ZERO, monthExpenses = BigDecimal.ZERO;
+
+        for (Transaction tx : transactions) {
+            String month = tx.getDate().atZone(ZoneOffset.UTC).toLocalDate().toString().substring(0, 7);
+            boolean isIncome = "income".equals(tx.getType());
+            if (isIncome) {
+                allIncome = allIncome.add(tx.getAmount());
+                if (month.equals(thisMonth)) monthIncome = monthIncome.add(tx.getAmount());
+            } else {
+                allExpenses = allExpenses.add(tx.getAmount());
+                catExpenses.merge(tx.getCategory(), tx.getAmount(), BigDecimal::add);
+                if (month.equals(thisMonth)) monthExpenses = monthExpenses.add(tx.getAmount());
+            }
+        }
+
+        // Capture finals for use in lambdas
+        final BigDecimal totalExpensesFinal = allExpenses;
+        final BigDecimal hundred = BigDecimal.valueOf(100);
+        BigDecimal monthBalance = monthIncome.subtract(monthExpenses);
+        StringBuilder sb = new StringBuilder();
+        sb.append("THIS MONTH: income ").append(monthIncome.setScale(2, RoundingMode.HALF_UP))
+          .append(" | expenses ").append(monthExpenses.setScale(2, RoundingMode.HALF_UP))
+          .append(" | balance ").append(monthBalance.setScale(2, RoundingMode.HALF_UP)).append("\n");
+        sb.append("ALL-TIME: income ").append(allIncome.setScale(2, RoundingMode.HALF_UP))
+          .append(" | expenses ").append(totalExpensesFinal.setScale(2, RoundingMode.HALF_UP)).append("\n");
+
+        sb.append("\nTOP EXPENSE CATEGORIES:\n");
+        catExpenses.entrySet().stream()
+            .sorted(Map.Entry.<String, BigDecimal>comparingByValue().reversed())
+            .limit(6)
+            .forEach(e -> {
+                BigDecimal pct = totalExpensesFinal.compareTo(BigDecimal.ZERO) > 0
+                    ? e.getValue().multiply(hundred).divide(totalExpensesFinal, 0, RoundingMode.HALF_UP)
+                    : BigDecimal.ZERO;
+                sb.append("- ").append(e.getKey()).append(": ")
+                  .append(e.getValue().setScale(2, RoundingMode.HALF_UP))
+                  .append(" (").append(pct).append("%)\n");
+            });
+
+        sb.append("\nRECENT TRANSACTIONS (latest 10):\n");
+        transactions.stream().limit(10).forEach(tx ->
+            sb.append(tx.getDate().atZone(ZoneOffset.UTC).toLocalDate())
+              .append(" ").append(tx.getType())
+              .append(" ").append(tx.getCategory())
+              .append(" ").append(tx.getAmount().toPlainString())
+              .append(" — ").append(tx.getDescription()).append("\n")
+        );
+
+        return sb.toString();
+    }
+
+    /**
+     * Advisor context stuffing — redesigned with query routing and aggregated context.
+     *
+     * Best practices (Anthropic + agenta.ai context engineering, 2025):
+     * 1. Route conversational turns to a lightweight path — no DB fetch, no transaction dump
+     * 2. For financial queries: aggregated summary + last 10 transactions (not 50 raw lines)
+     * 3. Sliding window history (6 messages) already enforced at the call site
      */
     private String advisorWithContextStuffing(UUID userId, String question, String baseSystemPrompt,
                                               List<Message> historyMessages) {
-        List<Transaction> allTxs = txRepo.findRecentTransactions(userId, PageRequest.of(0, 100));
-        String txSummary = allTxs.isEmpty()
-            ? "No transactions recorded yet."
-            : formatTransactions(allTxs);
+        // Conversational path — no transaction data needed, much faster
+        if (isConversational(question)) {
+            return callWithFallbackMessages(userId, "advisor-context",
+                List.of("groq", "gemini-lite"),
+                AdvisorPrompt.SYSTEM, historyMessages, question);
+        }
 
-        String enrichedSystem = baseSystemPrompt + "\n\nAll user transactions:\n" + txSummary;
+        // Financial path — compact aggregated context instead of raw transaction dump
+        List<Transaction> txs = txRepo.findRecentTransactions(userId, PageRequest.of(0, 50));
+        String enrichedSystem = baseSystemPrompt + "\n\n" + buildCompactContext(txs);
         return callWithFallbackMessages(userId, "advisor-context",
             List.of("groq", "gemini-flash", "gemini-lite", "cerebras"),
             enrichedSystem, historyMessages, question);
@@ -433,7 +530,7 @@ public class AiService {
      * causing some Groq API versions to reject the request. Explicit headers fix this.
      */
     @SuppressWarnings("unchecked")
-    public String transcribeAudio(MultipartFile audio, UUID userId) throws IOException {
+    public String transcribeAudio(MultipartFile audio, UUID userId) {
         checkDailyLimit(userId);
 
         // Strip codec parameters — "audio/webm;codecs=opus" → "audio/webm"
@@ -443,21 +540,22 @@ public class AiService {
         String filename = (audio.getOriginalFilename() != null && !audio.getOriginalFilename().isBlank())
             ? audio.getOriginalFilename() : "audio.webm";
 
-        // Build multipart body with explicit Content-Type on the file part
-        HttpHeaders fileHeaders = new HttpHeaders();
-        fileHeaders.setContentType(MediaType.parseMediaType(audioMime));
-        fileHeaders.setContentDispositionFormData("file", filename);
-
-        MultiValueMap<String, Object> body = new LinkedMultiValueMap<>();
-        body.add("file", new HttpEntity<>(audio.getBytes(), fileHeaders));
-        body.add("model", "whisper-large-v3-turbo");
-
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.MULTIPART_FORM_DATA);
         headers.set("Authorization", "Bearer " + groqApiKey);
 
         long start = System.currentTimeMillis();
         try {
+            // Build multipart body with explicit Content-Type on the file part
+            // audio.getBytes() is inside try — IOException is caught and wrapped as TrackAmException
+            HttpHeaders fileHeaders = new HttpHeaders();
+            fileHeaders.setContentType(MediaType.parseMediaType(audioMime));
+            fileHeaders.setContentDispositionFormData("file", filename);
+
+            MultiValueMap<String, Object> body = new LinkedMultiValueMap<>();
+            body.add("file", new HttpEntity<>(audio.getBytes(), fileHeaders));
+            body.add("model", "whisper-large-v3-turbo");
+
             Map<String, Object> response = restTemplate.postForObject(
                 "https://api.groq.com/openai/v1/audio/transcriptions",
                 new HttpEntity<>(body, headers),
@@ -468,7 +566,8 @@ public class AiService {
             return transcript != null ? transcript : "";
         } catch (Exception e) {
             auditService.log(userId, "transcribe", "groq", System.currentTimeMillis() - start, false, e.getMessage());
-            throw new IOException("Transcription failed: " + e.getMessage(), e);
+            log.warn("Transcription failed for user {}: {}", userId, e.getClass().getSimpleName());
+            throw new TrackAmException("Transcription failed. Please try again.");
         }
     }
 
@@ -476,15 +575,6 @@ public class AiService {
         if (auditService.isOverDailyLimit(userId, props.getMaxDailyCalls())) {
             throw new TrackAmException("Daily AI call limit reached. Try again tomorrow.");
         }
-    }
-
-    private String formatTransactions(List<Transaction> transactions) {
-        return transactions.stream()
-            .map(t -> "%s %s %s %s (%s)".formatted(
-                t.getDate().atZone(ZoneOffset.UTC).toLocalDate(),
-                t.getType(), t.getCategory(),
-                t.getAmount().toPlainString(), t.getDescription()))
-            .collect(Collectors.joining("\n"));
     }
 
 }

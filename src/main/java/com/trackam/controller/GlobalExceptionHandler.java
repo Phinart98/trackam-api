@@ -30,7 +30,8 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
     @ExceptionHandler(SecurityException.class)
     public ProblemDetail handleSecurityViolation(SecurityException ex) {
-        return ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, sanitize(ex.getMessage()));
+        log.warn("Security violation detected: {}", ex.getMessage());
+        return ProblemDetail.forStatusAndDetail(HttpStatus.FORBIDDEN, sanitize(ex.getMessage()));
     }
 
     @Override

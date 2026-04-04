@@ -8,6 +8,7 @@ import com.trackam.service.ExchangeRateService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -96,8 +97,12 @@ public class TransactionService {
     }
 
     /** Converts all user transactions to a new currency using today's FX rate. */
+    @Transactional
     public int convertCurrency(UUID userId, String fromCurrency, String toCurrency) {
         if (fromCurrency == null || toCurrency == null || fromCurrency.equalsIgnoreCase(toCurrency)) return 0;
+        if (!fromCurrency.matches("[A-Za-z]{3,4}") || !toCurrency.matches("[A-Za-z]{3,4}")) {
+            throw new TrackAmException("Invalid currency code.");
+        }
         ExchangeRateService.ExchangeResult result = fxService.convert(BigDecimal.ONE, fromCurrency, toCurrency, null);
         if (result == null) throw new TrackAmException("Could not fetch exchange rate for " + fromCurrency + " → " + toCurrency);
         return repo.bulkConvertCurrency(userId, result.rate(), toCurrency);

@@ -14,8 +14,8 @@ public interface ChatMessageRepository extends JpaRepository<ChatMessage, UUID> 
 
     List<ChatMessage> findBySessionIdOrderByCreatedAtAsc(UUID sessionId);
 
-    // Last 10 messages for conversation history context — DESC to get most recent, reversed by caller
-    List<ChatMessage> findTop10BySessionIdOrderByCreatedAtDesc(UUID sessionId);
+    // Last 6 messages (3 turns) — sliding window keeps immediate context without token bloat
+    List<ChatMessage> findTop6BySessionIdOrderByCreatedAtDesc(UUID sessionId);
 
     @Modifying
     @Transactional

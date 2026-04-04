@@ -90,6 +90,12 @@ public class SecurityConfig {
                     while (!timestamps.isEmpty() && timestamps.peekFirst() < windowStart) {
                         timestamps.pollFirst();
                     }
+                    // Evict empty deques — prevents unbounded map growth for inactive users.
+                    // The retry loop will recreate a fresh deque via computeIfAbsent.
+                    if (timestamps.isEmpty()) {
+                        userWindows.remove(userId, timestamps);
+                        continue;
+                    }
                     if (timestamps.size() >= AI_RATE_LIMIT) {
                         long oldestTs = timestamps.peekFirst() != null ? timestamps.peekFirst() : now;
                         long retryAfterSeconds = Math.max(1, (oldestTs + WINDOW_MS - now) / 1000);

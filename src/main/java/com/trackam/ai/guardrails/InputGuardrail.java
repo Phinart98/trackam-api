@@ -54,9 +54,10 @@ public final class InputGuardrail {
         String lower = input.toLowerCase();
         boolean hasFinancialContext = FINANCIAL_KEYWORDS.stream().anyMatch(lower::contains);
         if (!hasFinancialContext) {
-            // Soft check: numbers alone are often valid ("150 food")
-            boolean hasNumbers = input.matches(".*\\d.*");
-            if (!hasNumbers) {
+            // Soft check: short numeric inputs are likely valid ("150 food", "50 rice")
+            // but long inputs without financial keywords are likely off-topic
+            boolean isShortNumericEntry = input.matches(".*\\d.*") && input.trim().split("\\s+").length <= 6;
+            if (!isShortNumericEntry) {
                 throw new IllegalArgumentException(
                     "Input doesn't appear to be a financial transaction. " +
                     "Example: 'paid 50 cedis for groceries'");
