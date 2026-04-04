@@ -1,6 +1,16 @@
+# Stage 1: build — compiles the Maven project inside Cloud Build
+FROM maven:3.9-eclipse-temurin-21-alpine AS build
+WORKDIR /build
+# Cache dependencies separately from source for faster rebuilds
+COPY pom.xml .
+RUN mvn dependency:go-offline -q
+COPY src ./src
+RUN mvn package -DskipTests -q
+
+# Stage 2: runtime — minimal JRE image
 FROM eclipse-temurin:21-jre-alpine
 WORKDIR /app
-COPY target/trackam-api-*.jar app.jar
+COPY --from=build /build/target/trackam-api-*.jar app.jar
 EXPOSE 8080
 
 ENV JAVA_OPTS="-Xmx512m -Xms256m -XX:+UseG1GC -XX:MaxRAMPercentage=75"
