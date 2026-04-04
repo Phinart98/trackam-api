@@ -4,6 +4,7 @@ import com.trackam.repository.AuditLogRepository;
 import com.trackam.repository.BusinessProfileRepository;
 import com.trackam.repository.ChatMessageRepository;
 import com.trackam.repository.ChatSessionRepository;
+import com.trackam.repository.CustomCategoryRepository;
 import com.trackam.repository.GoalRepository;
 import com.trackam.repository.TransactionRepository;
 import lombok.RequiredArgsConstructor;
@@ -39,6 +40,7 @@ public class UserDataController {
     private final ChatMessageRepository chatMessageRepo;
     private final ChatSessionRepository chatSessionRepo;
     private final AuditLogRepository auditRepo;
+    private final CustomCategoryRepository customCategoryRepo;
 
     @GetMapping("/export")
     public ResponseEntity<Map<String, Object>> export(@AuthenticationPrincipal Jwt jwt) {
@@ -63,6 +65,7 @@ public class UserDataController {
 
         chatMessageRepo.deleteByUserId(userId);
         chatSessionRepo.deleteByUserId(userId);
+        customCategoryRepo.deleteByUserId(userId);
         goalRepo.deleteByUserId(userId);
         txRepo.deleteByUserId(userId);
         profileRepo.deleteById(userId);

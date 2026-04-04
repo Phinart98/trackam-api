@@ -19,4 +19,8 @@ public interface CustomCategoryRepository extends JpaRepository<CustomCategory, 
     @Modifying
     @Transactional
     void deleteByUserIdAndId(UUID userId, String id);
+
+    @Modifying
+    @Transactional
+    void deleteByUserId(UUID userId);
 }
