@@ -44,6 +44,7 @@ public class BusinessProfile {
     private boolean onboarded;
 
     @CreationTimestamp
+    @Column(updatable = false)
     private Instant createdAt;
 
     @UpdateTimestamp

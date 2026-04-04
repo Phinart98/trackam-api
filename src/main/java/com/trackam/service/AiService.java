@@ -364,7 +364,7 @@ public class AiService {
         // Conversational path — no transaction data needed, much faster
         if (isConversational(question)) {
             return callWithFallbackMessages(userId, "advisor-context",
-                List.of("groq", "gemini-lite"),
+                List.of("groq", "gemini-lite", "gemini-flash", "cerebras"),
                 AdvisorPrompt.SYSTEM, historyMessages, question);
         }
 
