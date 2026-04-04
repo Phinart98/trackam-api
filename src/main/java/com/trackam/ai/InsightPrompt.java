@@ -12,7 +12,9 @@ public class InsightPrompt {
         3. Use their currency symbol in all amounts
         4. No bullet points. No headers. Plain prose only.
         5. Maximum 3 sentences. No padding words.
-        6. If the user has no transactions, just say: "Add your first transaction to get a personalised insight."
+        6. Use plain, everyday language — say "how fast you're spending" not "burn rate",
+           "money left" not "runway", "spending pattern" not "expenditure profile"
+        7. If the user has no transactions, just say: "Add your first transaction to get a personalised insight."
         """;
 
     public static String buildContext(
@@ -33,7 +35,7 @@ public class InsightPrompt {
             Income this month: %s
             Expenses this month: %s
             Balance: %s
-            Budget burn rate: %d%% with %d days remaining
+            Budget used so far: %d%% with %d days remaining
             Top spending category: %s (%d%% of expenses)
             Spending trend: %s
             Total transactions recorded: %d

@@ -76,13 +76,9 @@ public class ExchangeRateService {
             }
         }
 
-        // Historical: {baseUrl}@{date}/v1/currencies/{from}.json
-        // Latest:     {baseUrl}@latest/v1/currencies/{from}.json
         String dateTag = isHistorical ? date : "latest";
-        String url = props.getExchangeBaseUrl() + "@" + dateTag + "/v1/currencies/" + fromLower + ".json";
-
         try {
-            Map<?, ?> response = restTemplate.getForObject(url, Map.class);
+            Map<?, ?> response = restTemplate.getForObject(rateUrl(fromLower, dateTag), Map.class);
             BigDecimal rate = extractRate(response, fromLower, toLower);
             if (isHistorical) {
                 historicalCache.put(cacheKey, rate);
@@ -90,12 +86,12 @@ public class ExchangeRateService {
             return new ExchangeResult(rate, convert(amount, rate), from, to, date);
         } catch (Exception e) {
             log.warn("FX lookup failed ({} → {}, {}): {}. Trying latest.", from, to, date, e.getMessage());
+            if (!isHistorical) return null;
         }
 
-        // Fallback to latest rate
-        String latestUrl = props.getExchangeBaseUrl() + "@latest/v1/currencies/" + fromLower + ".json";
+        // Fallback to latest rate (historical-only path)
         try {
-            Map<?, ?> response = restTemplate.getForObject(latestUrl, Map.class);
+            Map<?, ?> response = restTemplate.getForObject(rateUrl(fromLower, "latest"), Map.class);
             BigDecimal rate = extractRate(response, fromLower, toLower);
             return new ExchangeResult(rate, convert(amount, rate), from, to, "latest");
         } catch (Exception e) {
@@ -104,15 +100,18 @@ public class ExchangeRateService {
         }
     }
 
-    @SuppressWarnings("unchecked")
     private BigDecimal extractRate(Map<?, ?> response, String fromCurrency, String targetCurrency) {
         if (response == null) throw new TrackAmException("Empty FX response");
         // Response: { "date": "...", "{from}": { "{to}": 15.4, ... } }
-        Map<String, Object> rates = (Map<String, Object>) response.get(fromCurrency);
-        if (rates == null) throw new TrackAmException("No rates for currency: " + fromCurrency);
+        Object ratesObj = response.get(fromCurrency);
+        if (!(ratesObj instanceof Map<?, ?> rates)) throw new TrackAmException("No rates for currency: " + fromCurrency);
         Object rate = rates.get(targetCurrency);
         if (rate == null) throw new TrackAmException("Currency not supported: " + targetCurrency);
         return new BigDecimal(rate.toString());
+    }
+
+    private String rateUrl(String fromLower, String dateTag) {
+        return props.getExchangeBaseUrl() + "@" + dateTag + "/v1/currencies/" + fromLower + ".json";
     }
 
     private static BigDecimal convert(BigDecimal amount, BigDecimal rate) {

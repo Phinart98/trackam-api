@@ -12,9 +12,10 @@ public class TextParserPrompt {
         Rules:
         - Extract: amount, currency, category, type (income/expense), description, vendor
         - For date: today's date is provided in context — use it when user says "today", "just now", or gives no date; subtract appropriately for "yesterday" (-1 day), "last week" (-7 days), etc.
-        - Currency detection — use ISO 4217 code:
-          $ = USD, € = EUR, £ = GBP, ¥ = JPY, ₦ = NGN, R = ZAR, KSh = KES, ₵ or "cedis" = GHS
-          If NO currency symbol or word is present, use the currency from the "Currency context" line
+        - Currency detection (CRITICAL — symbol in the text OVERRIDES "Currency context"):
+          "$" → USD | "€" → EUR | "£" → GBP | "¥" → JPY | "₦" or "naira" → NGN
+          "R " (Rands) → ZAR | "KSh"/"Ksh" → KES | "₵" or "cedis" or "GH₵" or "GHC" → GHS
+          ONLY use the "Currency context" value when NONE of the above symbols/words appear in the text
         - Understand informal African English:
           "trotro" or "mate" = transport
           "chop bar", "waakye", "jollof" = food

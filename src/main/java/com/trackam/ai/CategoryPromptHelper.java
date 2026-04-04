@@ -11,27 +11,35 @@ import java.util.stream.Collectors;
  */
 public class CategoryPromptHelper {
 
-    private static final String DEFAULT_EXPENSES =
-            "transport, food, market, airtime, bills, health, education, supplies, personal, gifts, other_expense";
+    private static final String DEFAULT_EXPENSE_SECTION =
+            "transport (trotro, taxi, fuel, bus fares)\n" +
+            "  food (groceries, restaurant, chop bar, cooking ingredients)\n" +
+            "  market (buying goods at market or shop for personal use)\n" +
+            "  airtime (mobile credit, data bundles, SIM top-ups)\n" +
+            "  bills (electricity, water, rent, WiFi, utilities)\n" +
+            "  health (hospital, pharmacy, medicine, doctor)\n" +
+            "  education (school fees, books, tutoring, courses)\n" +
+            "  supplies (raw materials or stock bought FOR BUSINESS/RESALE — e.g. fabric to sell, wholesale items)\n" +
+            "  personal (personal purchases NOT for resale — clothing, shoes, personal electronics like a phone or laptop, haircut, personal care, items for family)\n" +
+            "  gifts (gifts to others, donations, church offering, wedding/funeral contributions)\n" +
+            "  other_expense (anything not fitting above)";
+
     private static final String DEFAULT_INCOME =
             "sales, momo, salary, other_income";
 
     public static String buildCategorySection(List<CustomCategory> customCategories) {
         StringBuilder sb = new StringBuilder();
-        sb.append("Valid categories (use ONLY these):\n");
-
-        // Expense line
-        sb.append("Expense: ").append(DEFAULT_EXPENSES);
+        sb.append("Valid categories with usage guidance (use ONLY these IDs):\n");
+        sb.append("Expense:\n  ").append(DEFAULT_EXPENSE_SECTION);
         String customExpenses = customCategories.stream()
                 .filter(c -> "expense".equals(c.getType()))
                 .map(CategoryPromptHelper::formatCustomCategory)
                 .collect(Collectors.joining(", "));
         if (!customExpenses.isEmpty()) {
-            sb.append(", ").append(customExpenses);
+            sb.append("\n  ").append(customExpenses);
         }
 
-        // Income line
-        sb.append("\nIncome:  ").append(DEFAULT_INCOME);
+        sb.append("\nIncome:\n  ").append(DEFAULT_INCOME);
         String customIncome = customCategories.stream()
                 .filter(c -> "income".equals(c.getType()))
                 .map(CategoryPromptHelper::formatCustomCategory)

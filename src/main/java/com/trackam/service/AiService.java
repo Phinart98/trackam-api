@@ -6,7 +6,6 @@ import com.trackam.ai.InsightPrompt;
 import com.trackam.ai.TextParserPrompt;
 import com.trackam.ai.guardrails.InputGuardrail;
 import com.trackam.ai.guardrails.OutputGuardrail;
-import com.trackam.ai.tools.AdvisorTools;
 import com.trackam.config.AppProperties;
 import com.trackam.dto.AdvisorRequest;
 import com.trackam.dto.InsightRequest;
@@ -21,14 +20,13 @@ import com.trackam.repository.ChatMessageRepository;
 import com.trackam.repository.ChatSessionRepository;
 import com.trackam.repository.CustomCategoryRepository;
 import com.trackam.repository.TransactionRepository;
+
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.ai.audio.transcription.AudioTranscriptionPrompt;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.content.Media;
 import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.messages.UserMessage;
-import org.springframework.ai.openai.OpenAiAudioTranscriptionModel;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.core.io.Resource;
@@ -45,6 +43,13 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.util.LinkedMultiValueMap;
+import org.springframework.util.MultiValueMap;
+import org.springframework.web.client.RestTemplate;
 
 @Service
 @Slf4j
@@ -54,46 +59,43 @@ public class AiService {
     private final ChatClient geminiLiteChatClient;
     private final ChatClient geminiFlashChatClient;
     private final ChatClient cerebrasChatClient; // nullable — only present if API key configured
-    private final OpenAiAudioTranscriptionModel transcriptionModel;
-    private final AdvisorTools advisorTools;
     private final AuditService auditService;
-    private final EmbeddingService embeddingService;
     private final ExchangeRateService exchangeRateService;
     private final TransactionRepository txRepo;
     private final CustomCategoryRepository categoryRepo;
     private final ChatMessageRepository chatMessageRepo;
     private final ChatSessionRepository chatSessionRepo;
+    private final RestTemplate restTemplate;
     private final AppProperties props;
+
+    @Value("${spring.ai.openai.api-key:}")
+    private String groqApiKey;
 
     public AiService(
         @Qualifier("groqChatClient") ChatClient groqChatClient,
         @Qualifier("geminiLiteChatClient") ChatClient geminiLiteChatClient,
         @Qualifier("geminiFlashChatClient") ChatClient geminiFlashChatClient,
         @Qualifier("cerebrasChatClient") Optional<ChatClient> cerebrasChatClient,
-        OpenAiAudioTranscriptionModel transcriptionModel,
-        AdvisorTools advisorTools,
         AuditService auditService,
-        EmbeddingService embeddingService,
         ExchangeRateService exchangeRateService,
         TransactionRepository txRepo,
         CustomCategoryRepository categoryRepo,
         ChatMessageRepository chatMessageRepo,
         ChatSessionRepository chatSessionRepo,
+        RestTemplate restTemplate,
         AppProperties props
     ) {
         this.groqChatClient = groqChatClient;
         this.geminiLiteChatClient = geminiLiteChatClient;
         this.geminiFlashChatClient = geminiFlashChatClient;
         this.cerebrasChatClient = cerebrasChatClient.orElse(null);
-        this.transcriptionModel = transcriptionModel;
-        this.advisorTools = advisorTools;
         this.auditService = auditService;
-        this.embeddingService = embeddingService;
         this.exchangeRateService = exchangeRateService;
         this.txRepo = txRepo;
         this.categoryRepo = categoryRepo;
         this.chatMessageRepo = chatMessageRepo;
         this.chatSessionRepo = chatSessionRepo;
+        this.restTemplate = restTemplate;
         this.props = props;
     }
 
@@ -246,32 +248,10 @@ public class AiService {
         String contextBlock = buildFinancialContext(ctx);
         String systemPrompt = AdvisorPrompt.SYSTEM + "\n\n" + contextBlock;
 
-        // Attempt 1: Tool-calling via Gemini Flash (the model decides which SQL queries to run)
-        String reply = null;
-        long start = System.currentTimeMillis();
-        try {
-            reply = geminiFlashChatClient.prompt()
-                .system(systemPrompt)
-                .messages(historyMessages)
-                .user(question)
-                .tools(advisorTools)
-                .toolContext(Map.of("userId", userId))
-                .call()
-                .content();
-
-            auditService.log(userId, "advisor", "gemini-flash-tools",
-                System.currentTimeMillis() - start, true, null);
-
-        } catch (Exception e) {
-            auditService.log(userId, "advisor", "gemini-flash-tools",
-                System.currentTimeMillis() - start, false, e.getMessage());
-            log.warn("Tool-calling advisor failed: {}. Falling back to context stuffing.", e.getMessage());
-        }
-
-        // Attempt 2: Context stuffing — serialize all transactions into the prompt
-        if (reply == null || reply.isBlank()) {
-            reply = advisorWithContextStuffing(userId, question, systemPrompt, historyMessages);
-        }
+        // Context stuffing — serialize recent transactions into the prompt.
+        // Groq is primary (fast inference), Gemini Flash as fallback.
+        // Tool-calling was removed: the extra round-trips made responses too slow for chat.
+        String reply = advisorWithContextStuffing(userId, question, systemPrompt, historyMessages);
 
         // Both messages persisted atomically — if the AI call above threw, neither is saved.
         chatMessageRepo.saveAll(List.of(
@@ -295,7 +275,7 @@ public class AiService {
 
         String enrichedSystem = baseSystemPrompt + "\n\nAll user transactions:\n" + txSummary;
         return callWithFallbackMessages(userId, "advisor-context",
-            List.of("gemini-flash", "groq", "gemini-lite", "cerebras"),
+            List.of("groq", "gemini-flash", "gemini-lite", "cerebras"),
             enrichedSystem, historyMessages, question);
     }
 
@@ -447,28 +427,48 @@ public class AiService {
 
     /**
      * Transcribes audio via Groq Whisper (whisper-large-v3-turbo).
-     * Auto-configured from spring.ai.openai.* — same key and base-url as chat.
+     *
+     * Uses RestTemplate directly so we can set an explicit Content-Type on the audio part.
+     * Spring AI's AudioTranscriptionPrompt sends ByteArrayResource without a content type,
+     * causing some Groq API versions to reject the request. Explicit headers fix this.
      */
+    @SuppressWarnings("unchecked")
     public String transcribeAudio(MultipartFile audio, UUID userId) throws IOException {
         checkDailyLimit(userId);
-        ByteArrayResource audioResource = new ByteArrayResource(audio.getBytes()) {
-            @Override
-            public String getFilename() {
-                String original = audio.getOriginalFilename();
-                return (original != null && !original.isBlank()) ? original : "audio.webm";
-            }
-        };
+
+        // Strip codec parameters — "audio/webm;codecs=opus" → "audio/webm"
+        String rawType = audio.getContentType() != null ? audio.getContentType() : "audio/webm";
+        String audioMime = rawType.contains(";") ? rawType.substring(0, rawType.indexOf(';')).trim() : rawType;
+
+        String filename = (audio.getOriginalFilename() != null && !audio.getOriginalFilename().isBlank())
+            ? audio.getOriginalFilename() : "audio.webm";
+
+        // Build multipart body with explicit Content-Type on the file part
+        HttpHeaders fileHeaders = new HttpHeaders();
+        fileHeaders.setContentType(MediaType.parseMediaType(audioMime));
+        fileHeaders.setContentDispositionFormData("file", filename);
+
+        MultiValueMap<String, Object> body = new LinkedMultiValueMap<>();
+        body.add("file", new HttpEntity<>(audio.getBytes(), fileHeaders));
+        body.add("model", "whisper-large-v3-turbo");
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.MULTIPART_FORM_DATA);
+        headers.set("Authorization", "Bearer " + groqApiKey);
+
         long start = System.currentTimeMillis();
         try {
-            String transcript = transcriptionModel
-                .call(new AudioTranscriptionPrompt(audioResource))
-                .getResult()
-                .getOutput();
+            Map<String, Object> response = restTemplate.postForObject(
+                "https://api.groq.com/openai/v1/audio/transcriptions",
+                new HttpEntity<>(body, headers),
+                Map.class
+            );
+            String transcript = response != null ? (String) response.get("text") : "";
             auditService.log(userId, "transcribe", "groq", System.currentTimeMillis() - start, true, null);
-            return transcript;
+            return transcript != null ? transcript : "";
         } catch (Exception e) {
             auditService.log(userId, "transcribe", "groq", System.currentTimeMillis() - start, false, e.getMessage());
-            throw e;
+            throw new IOException("Transcription failed: " + e.getMessage(), e);
         }
     }
 

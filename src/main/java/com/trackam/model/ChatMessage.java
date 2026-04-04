@@ -35,8 +35,11 @@ public class ChatMessage {
     @Column(name = "session_id", nullable = false)
     private UUID sessionId;
 
+    public static final String ROLE_USER = "user";
+    public static final String ROLE_ASSISTANT = "assistant";
+
     @Column(nullable = false)
-    private String role; // "user" | "assistant"
+    private String role; // ROLE_USER | ROLE_ASSISTANT
 
     @Column(nullable = false, columnDefinition = "TEXT")
     private String content;

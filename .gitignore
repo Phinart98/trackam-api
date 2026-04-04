@@ -23,3 +23,6 @@ application-local.properties
 
 # Claude Code
 CLAUDE.md
+
+# Cloud Run deployment env vars (contains secrets)
+.cloudrun-env.yaml
