@@ -147,10 +147,10 @@ public class TransactionService {
         repo.saveAll(transactions);
 
         // Goals: use today's rate (no meaningful date to anchor)
+        // Must throw on failure — silently skipping leaves goals in old currency while transactions are converted
         ExchangeRateService.ExchangeResult todayRate = fxService.convert(BigDecimal.ONE, fromCurrency, toCurrency, null);
-        if (todayRate != null) {
-            goalRepo.bulkConvertCurrency(userId, todayRate.rate(), toCurrency);
-        }
+        if (todayRate == null) throw new TrackAmException("Could not fetch exchange rate for goal conversion: " + fromCurrency + " → " + toCurrency);
+        goalRepo.bulkConvertCurrency(userId, todayRate.rate(), toCurrency);
 
         log.info("Converted {} transactions ({} unique dates) from {} to {} for user {}",
             updatedTx, rateCache.size(), fromCurrency, toCurrency, userId);
