@@ -15,11 +15,16 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
- * Fetches historical and latest FX rates via Frankfurter (free, no API key).
- * Supports GHS, NGN, KES, ZAR, UGX and 30+ currencies. Never throws — returns null on failure.
+ * Fetches FX rates via the fawazahmed0 currency API (CDN-hosted, free, no API key).
+ * Covers 150+ currencies including GHS, NGN, KES, ZAR, UGX and all African currencies.
  *
- * Historical rates (past dates) are cached indefinitely — ECB never revises them.
- * "latest" rates are not cached since they update daily.
+ * API format:
+ *   Latest:     {baseUrl}@latest/v1/currencies/{from}.json
+ *   Historical: {baseUrl}@{YYYY-MM-DD}/v1/currencies/{from}.json
+ * Response: { "date": "2026-04-03", "{from}": { "{to}": rate } }
+ *
+ * Historical rates are cached indefinitely — they never change.
+ * Latest rates are not cached since they update daily.
  */
 @Service
 @RequiredArgsConstructor
@@ -29,8 +34,8 @@ public class ExchangeRateService {
     private final RestTemplate restTemplate;
     private final AppProperties props;
 
-    // Historical rates are immutable — safe to cache for the JVM lifetime
-    // Bounded to 5,000 entries (covers ~25 currency pairs × 200 unique dates)
+    // Historical rates are immutable — safe to cache for the JVM lifetime.
+    // Bounded to 5,000 entries (covers ~25 currency pairs × 200 unique dates).
     private final Map<String, BigDecimal> historicalCache = Collections.synchronizedMap(
         new LinkedHashMap<>(256, 0.75f, false) {
             @Override
@@ -57,14 +62,13 @@ public class ExchangeRateService {
     public ExchangeResult convert(BigDecimal amount, String from, String to, String txDate) {
         if (from == null || to == null || from.equalsIgnoreCase(to)) return null;
 
-        String fromUpper = from.toUpperCase();
-        String toUpper = to.toUpperCase();
+        String fromLower = from.toLowerCase();
+        String toLower = to.toLowerCase();
         String date = txDate != null && txDate.length() >= 10 ? txDate.substring(0, 10) : "latest";
         boolean isHistorical = !"latest".equals(date);
 
-        String cacheKey = fromUpper + "-" + toUpper + "-" + date;
+        String cacheKey = fromLower + "-" + toLower + "-" + date;
 
-        // Historical rates are immutable — return from cache if available
         if (isHistorical) {
             BigDecimal cachedRate = historicalCache.get(cacheKey);
             if (cachedRate != null) {
@@ -72,24 +76,27 @@ public class ExchangeRateService {
             }
         }
 
+        // Historical: {baseUrl}@{date}/v1/currencies/{from}.json
+        // Latest:     {baseUrl}@latest/v1/currencies/{from}.json
+        String dateTag = isHistorical ? date : "latest";
+        String url = props.getExchangeBaseUrl() + "@" + dateTag + "/v1/currencies/" + fromLower + ".json";
+
         try {
-            Map response = restTemplate.getForObject(
-                props.getExchangeBaseUrl() + "/{date}?from={from}&to={to}",
-                Map.class, date, fromUpper, toUpper);
-            BigDecimal rate = extractRate(response, toUpper);
+            Map<?, ?> response = restTemplate.getForObject(url, Map.class);
+            BigDecimal rate = extractRate(response, fromLower, toLower);
             if (isHistorical) {
                 historicalCache.put(cacheKey, rate);
             }
             return new ExchangeResult(rate, convert(amount, rate), from, to, date);
         } catch (Exception e) {
-            log.warn("Historical FX lookup failed ({} → {}, {}): {}. Trying latest.", from, to, date, e.getMessage());
+            log.warn("FX lookup failed ({} → {}, {}): {}. Trying latest.", from, to, date, e.getMessage());
         }
 
+        // Fallback to latest rate
+        String latestUrl = props.getExchangeBaseUrl() + "@latest/v1/currencies/" + fromLower + ".json";
         try {
-            Map response = restTemplate.getForObject(
-                props.getExchangeBaseUrl() + "/latest?from={from}&to={to}",
-                Map.class, fromUpper, toUpper);
-            BigDecimal rate = extractRate(response, toUpper);
+            Map<?, ?> response = restTemplate.getForObject(latestUrl, Map.class);
+            BigDecimal rate = extractRate(response, fromLower, toLower);
             return new ExchangeResult(rate, convert(amount, rate), from, to, "latest");
         } catch (Exception e) {
             log.warn("FX conversion failed completely ({} → {}): {}", from, to, e.getMessage());
@@ -98,11 +105,12 @@ public class ExchangeRateService {
     }
 
     @SuppressWarnings("unchecked")
-    private BigDecimal extractRate(Map response, String targetCurrency) {
+    private BigDecimal extractRate(Map<?, ?> response, String fromCurrency, String targetCurrency) {
         if (response == null) throw new TrackAmException("Empty FX response");
-        Map<String, Number> rates = (Map<String, Number>) response.get("rates");
-        if (rates == null) throw new TrackAmException("No rates in FX response");
-        Number rate = rates.get(targetCurrency);
+        // Response: { "date": "...", "{from}": { "{to}": 15.4, ... } }
+        Map<String, Object> rates = (Map<String, Object>) response.get(fromCurrency);
+        if (rates == null) throw new TrackAmException("No rates for currency: " + fromCurrency);
+        Object rate = rates.get(targetCurrency);
         if (rate == null) throw new TrackAmException("Currency not supported: " + targetCurrency);
         return new BigDecimal(rate.toString());
     }

@@ -54,7 +54,7 @@ public class AppProperties {
     private int maxDailyCalls;
 
     // ── Exchange rates ──────────────────────────────────────────────────────
-    @Value("${trackam.exchange.base-url:https://api.frankfurter.dev}")
+    @Value("${trackam.exchange.base-url:https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api}")
     private String exchangeBaseUrl;
 
     // ── Admin ────────────────────────────────────────────────────────────────

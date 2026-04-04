@@ -16,6 +16,8 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import org.springframework.data.domain.PageRequest;
+
 import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -46,7 +48,7 @@ public class UserDataController {
         data.put("exportedAt", Instant.now().toString());
         data.put("userId", userId.toString());
         data.put("profile", profileRepo.findById(userId).orElse(null));
-        data.put("transactions", txRepo.findByUserIdOrderByDateDesc(userId));
+        data.put("transactions", txRepo.findRecentTransactions(userId, PageRequest.of(0, 10_000)));
         data.put("goals", goalRepo.findByUserIdOrderByCreatedAtAsc(userId));
         data.put("chatSessions", chatSessionRepo.findByUserIdOrderByUpdatedAtDesc(userId));
         data.put("chatMessages", chatMessageRepo.findByUserIdOrderByCreatedAtDesc(userId));

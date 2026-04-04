@@ -25,7 +25,8 @@ public class MetricsController {
 
     @GetMapping("/metrics")
     public ResponseEntity<Map<String, Object>> getMetrics(@AuthenticationPrincipal Jwt jwt) {
-        if (props.getAdminUserId().isBlank() || !jwt.getSubject().equals(props.getAdminUserId())) {
+        String adminId = props.getAdminUserId().trim();
+        if (adminId.isBlank() || !jwt.getSubject().equals(adminId)) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
 

@@ -13,6 +13,7 @@ import org.springframework.web.multipart.MultipartFile;
 public final class InputGuardrail {
 
     private static final int MAX_TEXT_LENGTH = 500;
+    private static final long MAX_FILE_SIZE_BYTES = 10L * 1024 * 1024; // 10 MB
 
     // Prompt injection patterns: instructions trying to override system prompt
     private static final List<Pattern> INJECTION_PATTERNS = List.of(
@@ -71,7 +72,7 @@ public final class InputGuardrail {
         if (file == null || file.isEmpty()) {
             throw new IllegalArgumentException("Image file is required.");
         }
-        if (file.getSize() > 10 * 1024 * 1024) {
+        if (file.getSize() > MAX_FILE_SIZE_BYTES) {
             throw new IllegalArgumentException("Image too large. Maximum 10 MB.");
         }
         try {
@@ -97,6 +98,29 @@ public final class InputGuardrail {
         if (h.length >= 12 && h[0] == 0x52 && h[1] == 0x49 && h[2] == 0x46 && h[3] == 0x46
                 && h[8] == 0x57 && h[9] == 0x45 && h[10] == 0x42 && h[11] == 0x50) return true;
         return false;
+    }
+
+    // startsWith match — "audio/webm" covers "audio/webm;codecs=opus", etc.
+    private static final List<String> ALLOWED_AUDIO_TYPES = List.of(
+        "audio/webm", "audio/ogg", "audio/mp4", "audio/mpeg"
+    );
+
+    /**
+     * Validate audio upload: size limit + MIME type allowlist.
+     * We trust Content-Type (not magic bytes) because audio codec headers vary too widely.
+     * The file goes straight to Groq — no execution risk from a mistyped MIME.
+     */
+    public static void validateAudio(MultipartFile file) {
+        if (file == null || file.isEmpty()) {
+            throw new IllegalArgumentException("Audio file is required.");
+        }
+        if (file.getSize() > MAX_FILE_SIZE_BYTES) {
+            throw new IllegalArgumentException("Audio file too large. Maximum 10 MB.");
+        }
+        String contentType = file.getContentType();
+        if (contentType == null || ALLOWED_AUDIO_TYPES.stream().noneMatch(contentType::startsWith)) {
+            throw new IllegalArgumentException("Unsupported audio format. Use WebM, OGG, or MP4.");
+        }
     }
 
     public static void validateAdvisorQuestion(String question) {

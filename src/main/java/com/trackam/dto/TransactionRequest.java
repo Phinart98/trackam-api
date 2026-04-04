@@ -15,7 +15,7 @@ public record TransactionRequest(
     @NotBlank @Size(max = 50) String category,
     @NotBlank @Size(max = 500) String description,
     @Size(max = 200) String vendor,
-    @NotBlank @Pattern(regexp = "manual|ai-text|ai-image", message = "must be 'manual', 'ai-text', or 'ai-image'") String source,
+    @NotBlank @Pattern(regexp = "manual|ai-text|ai-image|ai-voice", message = "must be 'manual', 'ai-text', 'ai-image', or 'ai-voice'") String source,
     @NotBlank String date,
     Integer confidence
 ) {}

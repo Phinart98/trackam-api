@@ -33,6 +33,10 @@ spring:
       chat:
         options:
           model: meta-llama/llama-4-scout-17b-16e-instruct
+      audio:
+        transcription:
+          options:
+            model: whisper-large-v3-turbo
       embedding:
         enabled: false
     # Disable Spring AI's built-in retry — we handle fallback ourselves in AiService
@@ -54,7 +58,7 @@ trackam:
   admin:
     user-id: ${TRACKAM_ADMIN_USER_ID:}
   exchange:
-    base-url: https://api.frankfurter.dev
+    base-url: https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api
   ai:
     max-daily-calls: 500
     gemini:

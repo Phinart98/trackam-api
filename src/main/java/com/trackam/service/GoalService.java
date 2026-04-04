@@ -40,8 +40,7 @@ public class GoalService {
     }
 
     public Goal update(UUID id, GoalRequest req, UUID userId) {
-        Goal goal = repo.findById(id)
-            .filter(g -> g.getUserId().equals(userId))
+        Goal goal = repo.findByIdAndUserId(id, userId)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Goal not found"));
 
         goal.setName(req.name());
@@ -59,8 +58,7 @@ public class GoalService {
     }
 
     public void delete(UUID id, UUID userId) {
-        Goal goal = repo.findById(id)
-            .filter(g -> g.getUserId().equals(userId))
+        Goal goal = repo.findByIdAndUserId(id, userId)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Goal not found"));
         repo.delete(goal);
     }

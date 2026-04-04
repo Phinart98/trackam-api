@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
+import com.trackam.ai.guardrails.InputGuardrail;
 import com.trackam.dto.AdvisorRequest;
 import com.trackam.dto.AdvisorResponse;
 import com.trackam.dto.InsightRequest;
@@ -56,6 +57,16 @@ public class AiController {
         UUID userId = UUID.fromString(jwt.getSubject());
         String text = aiService.generateInsight(request, userId);
         return ResponseEntity.ok(Map.of("insight", text));
+    }
+
+    @PostMapping("/transcribe")
+    public ResponseEntity<Map<String, String>> transcribe(
+            @RequestParam("audio") MultipartFile audio,
+            @AuthenticationPrincipal Jwt jwt) throws IOException {
+        InputGuardrail.validateAudio(audio);
+        UUID userId = UUID.fromString(jwt.getSubject());
+        String transcript = aiService.transcribeAudio(audio, userId);
+        return ResponseEntity.ok(Map.of("transcript", transcript));
     }
 
     @PostMapping("/advisor")

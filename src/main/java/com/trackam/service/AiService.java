@@ -22,9 +22,13 @@ import com.trackam.repository.ChatSessionRepository;
 import com.trackam.repository.CustomCategoryRepository;
 import com.trackam.repository.TransactionRepository;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.ai.audio.transcription.AudioTranscriptionPrompt;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.content.Media;
+import org.springframework.ai.chat.messages.AssistantMessage;
+import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.messages.UserMessage;
+import org.springframework.ai.openai.OpenAiAudioTranscriptionModel;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.core.io.Resource;
@@ -50,6 +54,7 @@ public class AiService {
     private final ChatClient geminiLiteChatClient;
     private final ChatClient geminiFlashChatClient;
     private final ChatClient cerebrasChatClient; // nullable — only present if API key configured
+    private final OpenAiAudioTranscriptionModel transcriptionModel;
     private final AdvisorTools advisorTools;
     private final AuditService auditService;
     private final EmbeddingService embeddingService;
@@ -65,6 +70,7 @@ public class AiService {
         @Qualifier("geminiLiteChatClient") ChatClient geminiLiteChatClient,
         @Qualifier("geminiFlashChatClient") ChatClient geminiFlashChatClient,
         @Qualifier("cerebrasChatClient") Optional<ChatClient> cerebrasChatClient,
+        OpenAiAudioTranscriptionModel transcriptionModel,
         AdvisorTools advisorTools,
         AuditService auditService,
         EmbeddingService embeddingService,
@@ -79,6 +85,7 @@ public class AiService {
         this.geminiLiteChatClient = geminiLiteChatClient;
         this.geminiFlashChatClient = geminiFlashChatClient;
         this.cerebrasChatClient = cerebrasChatClient.orElse(null);
+        this.transcriptionModel = transcriptionModel;
         this.advisorTools = advisorTools;
         this.auditService = auditService;
         this.embeddingService = embeddingService;
@@ -228,11 +235,16 @@ public class AiService {
         List<ChatMessage> history = chatMessageRepo.findTop10BySessionIdOrderByCreatedAtDesc(session.getId())
             .reversed();
 
-        // Build base system prompt with user's financial summary
+        // Proper role-based history — the model treats this as real dialogue, not injected text
+        List<Message> historyMessages = history.stream()
+            .map(msg -> ChatMessage.ROLE_USER.equals(msg.getRole())
+                ? (Message) new UserMessage(msg.getContent())
+                : new AssistantMessage(msg.getContent()))
+            .toList();
+
+        // System prompt: financial context only — history is passed as proper message objects
         String contextBlock = buildFinancialContext(ctx);
-        String historyBlock = buildConversationHistory(history);
-        String systemPrompt = AdvisorPrompt.SYSTEM + "\n\n" + contextBlock
-            + (historyBlock.isBlank() ? "" : "\n\n" + historyBlock);
+        String systemPrompt = AdvisorPrompt.SYSTEM + "\n\n" + contextBlock;
 
         // Attempt 1: Tool-calling via Gemini Flash (the model decides which SQL queries to run)
         String reply = null;
@@ -240,6 +252,7 @@ public class AiService {
         try {
             reply = geminiFlashChatClient.prompt()
                 .system(systemPrompt)
+                .messages(historyMessages)
                 .user(question)
                 .tools(advisorTools)
                 .toolContext(Map.of("userId", userId))
@@ -257,13 +270,13 @@ public class AiService {
 
         // Attempt 2: Context stuffing — serialize all transactions into the prompt
         if (reply == null || reply.isBlank()) {
-            reply = advisorWithContextStuffing(userId, question, systemPrompt);
+            reply = advisorWithContextStuffing(userId, question, systemPrompt, historyMessages);
         }
 
         // Both messages persisted atomically — if the AI call above threw, neither is saved.
         chatMessageRepo.saveAll(List.of(
-            ChatMessage.builder().userId(userId).sessionId(session.getId()).role("user").content(question).build(),
-            ChatMessage.builder().userId(userId).sessionId(session.getId()).role("assistant").content(reply).build()
+            ChatMessage.builder().userId(userId).sessionId(session.getId()).role(ChatMessage.ROLE_USER).content(question).build(),
+            ChatMessage.builder().userId(userId).sessionId(session.getId()).role(ChatMessage.ROLE_ASSISTANT).content(reply).build()
         ));
 
         return new AdvisorResponse(reply, session.getId().toString());
@@ -271,22 +284,49 @@ public class AiService {
 
     /**
      * Fallback advisor: stuffs all user transactions into the prompt as context.
-     * Works for open-ended questions where no specific tool matches.
+     * Also passes conversation history as proper message objects for natural dialogue.
      */
-    private String advisorWithContextStuffing(UUID userId, String question, String baseSystemPrompt) {
+    private String advisorWithContextStuffing(UUID userId, String question, String baseSystemPrompt,
+                                              List<Message> historyMessages) {
         List<Transaction> allTxs = txRepo.findRecentTransactions(userId, PageRequest.of(0, 100));
         String txSummary = allTxs.isEmpty()
             ? "No transactions recorded yet."
             : formatTransactions(allTxs);
 
         String enrichedSystem = baseSystemPrompt + "\n\nAll user transactions:\n" + txSummary;
-
-        return callWithFallback(
-            userId, "advisor",
+        return callWithFallbackMessages(userId, "advisor-context",
             List.of("gemini-flash", "groq", "gemini-lite", "cerebras"),
-            enrichedSystem, question,
-            String.class
-        );
+            enrichedSystem, historyMessages, question);
+    }
+
+    /**
+     * Generic fallback chain for message-history-aware calls (returns raw String content).
+     * Mirrors callWithFallback but uses .messages() + .content() instead of .user() + .entity().
+     */
+    private String callWithFallbackMessages(UUID userId, String operation,
+                                             List<String> providerOrder,
+                                             String system, List<Message> history, String user) {
+        Exception lastException = null;
+        for (String provider : providerOrder) {
+            ChatClient client = selectClient(provider);
+            if (client == null) continue;
+            long start = System.currentTimeMillis();
+            try {
+                String result = client.prompt()
+                    .system(system)
+                    .messages(history)
+                    .user(user)
+                    .call()
+                    .content();
+                auditService.log(userId, operation, provider, System.currentTimeMillis() - start, true, null);
+                return result;
+            } catch (Exception e) {
+                auditService.log(userId, operation, provider, System.currentTimeMillis() - start, false, e.getMessage());
+                log.warn("{} failed for {}: {}. Trying next provider.", provider, operation, e.getMessage());
+                lastException = e;
+            }
+        }
+        throw new TrackAmException("All AI providers failed. Please try again later.", lastException);
     }
 
     /**
@@ -356,6 +396,12 @@ public class AiService {
                     .user(user)
                     .call()
                     .entity(type);
+                if (result == null) {
+                    auditService.log(userId, operation, provider,
+                        System.currentTimeMillis() - start, false, "null response");
+                    log.warn("{} returned null for {}. Trying next provider.", provider, operation);
+                    continue;
+                }
                 auditService.log(userId, operation, provider,
                     System.currentTimeMillis() - start, true, null);
                 return result;
@@ -399,14 +445,31 @@ public class AiService {
             .build());
     }
 
-    private String buildConversationHistory(List<ChatMessage> messages) {
-        if (messages.isEmpty()) return "";
-        StringBuilder sb = new StringBuilder("Recent conversation:\n");
-        for (ChatMessage msg : messages) {
-            sb.append("user".equals(msg.getRole()) ? "User: " : "Assistant: ");
-            sb.append(msg.getContent()).append("\n");
+    /**
+     * Transcribes audio via Groq Whisper (whisper-large-v3-turbo).
+     * Auto-configured from spring.ai.openai.* — same key and base-url as chat.
+     */
+    public String transcribeAudio(MultipartFile audio, UUID userId) throws IOException {
+        checkDailyLimit(userId);
+        ByteArrayResource audioResource = new ByteArrayResource(audio.getBytes()) {
+            @Override
+            public String getFilename() {
+                String original = audio.getOriginalFilename();
+                return (original != null && !original.isBlank()) ? original : "audio.webm";
+            }
+        };
+        long start = System.currentTimeMillis();
+        try {
+            String transcript = transcriptionModel
+                .call(new AudioTranscriptionPrompt(audioResource))
+                .getResult()
+                .getOutput();
+            auditService.log(userId, "transcribe", "groq", System.currentTimeMillis() - start, true, null);
+            return transcript;
+        } catch (Exception e) {
+            auditService.log(userId, "transcribe", "groq", System.currentTimeMillis() - start, false, e.getMessage());
+            throw e;
         }
-        return sb.toString();
     }
 
     private void checkDailyLimit(UUID userId) {
