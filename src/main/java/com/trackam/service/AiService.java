@@ -473,10 +473,10 @@ public class AiService {
                     .user(user)
                     .call()
                     .entity(type);
-                if (result == null) {
+                if (result == null || (result instanceof String s && s.isBlank())) {
                     auditService.log(userId, operation, provider,
-                        System.currentTimeMillis() - start, false, "null response");
-                    log.warn("{} returned null for {}. Trying next provider.", provider, operation);
+                        System.currentTimeMillis() - start, false, "null or blank response");
+                    log.warn("{} returned null/blank for {}. Trying next provider.", provider, operation);
                     continue;
                 }
                 auditService.log(userId, operation, provider,

@@ -2,6 +2,7 @@ package com.trackam.controller;
 
 import com.trackam.service.ExchangeRateService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
@@ -9,6 +10,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
 import java.util.Map;
@@ -44,7 +46,8 @@ public class FxController {
 
         ExchangeRateService.ExchangeResult result = fxService.convert(BigDecimal.ONE, from, to, null);
         if (result == null) {
-            return ResponseEntity.status(503).body(Map.of("error", "Exchange rate unavailable for " + from + " → " + to));
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
+                "Exchange rate unavailable for " + from.toUpperCase() + " → " + to.toUpperCase());
         }
 
         return ResponseEntity.ok(Map.of("rate", result.rate(), "from", from.toUpperCase(), "to", to.toUpperCase()));
