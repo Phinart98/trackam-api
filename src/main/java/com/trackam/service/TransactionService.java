@@ -25,7 +25,7 @@ public class TransactionService {
     private final EmbeddingService embeddingService;
 
     public List<Transaction> getAll(UUID userId) {
-        return repo.findByUserIdOrderByDateDesc(userId);
+        return repo.findByUserIdOrderByDateDescCreatedAtDesc(userId);
     }
 
     public Transaction create(TransactionRequest req, UUID userId) {

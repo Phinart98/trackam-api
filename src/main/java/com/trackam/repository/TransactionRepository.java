@@ -19,7 +19,7 @@ public interface TransactionRepository extends JpaRepository<Transaction, UUID> 
 
     Optional<Transaction> findByIdAndUserId(UUID id, UUID userId);
 
-    List<Transaction> findByUserIdOrderByDateDesc(UUID userId);
+    List<Transaction> findByUserIdOrderByDateDescCreatedAtDesc(UUID userId);
 
     Page<Transaction> findByUserId(UUID userId, Pageable pageable);
 
