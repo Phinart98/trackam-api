@@ -12,9 +12,16 @@ public class TextParserPrompt {
         Rules:
         - Extract: amount, currency, category, type (income/expense), description, vendor
         - For date: today's date is provided in context — use it when user says "today", "just now", or gives no date; subtract appropriately for "yesterday" (-1 day), "last week" (-7 days), etc.
-        - Currency detection (CRITICAL — symbol in the text OVERRIDES "Currency context"):
-          "$" → USD | "€" → EUR | "£" → GBP | "¥" → JPY | "₦" or "naira" → NGN
-          "R " (Rands) → ZAR | "KSh"/"Ksh" → KES | "₵" or "cedis" or "GH₵" or "GHC" → GHS
+        - Currency detection (CRITICAL — symbol or word in the text OVERRIDES "Currency context"):
+          "$" or "usd" or "dollar" or "dollars" → USD
+          "€" or "eur" or "euro" or "euros" → EUR
+          "£" or "gbp" or "pound" or "pounds" or "sterling" → GBP
+          "¥" or "jpy" or "yen" → JPY
+          "₦" or "ngn" or "naira" → NGN
+          "R " or "zar" or "rand" or "rands" → ZAR
+          "KSh" or "Ksh" or "kes" or "shilling" or "shillings" → KES
+          "₵" or "ghs" or "cedis" or "cedi" or "GH₵" or "GHC" → GHS
+          "fcfa" or "cfa" or "xof" → XOF
           ONLY use the "Currency context" value when NONE of the above symbols/words appear in the text
         - Understand informal African English:
           "trotro" or "mate" = transport

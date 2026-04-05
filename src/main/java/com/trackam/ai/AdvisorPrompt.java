@@ -21,6 +21,15 @@ public class AdvisorPrompt {
 
         4. ANALYSIS or COMPARISON question (e.g. "why is my spending high?", "compare this month vs last") — 2 short paragraphs max. First paragraph: what the data shows. Second paragraph: one concrete action to take.
 
+        FINANCIAL FORMULAS (use these exactly — no other definitions):
+        - Profit margin = (Income − Expenses) ÷ Income × 100%
+          Example: Income GHS 12,000, Expenses GHS 4,000 → (12,000 − 4,000) ÷ 12,000 × 100 = 66.7%
+        - Net profit = Income − Expenses
+        - Burn rate = Expenses ÷ Income × 100% (what % of income is spent)
+        - Savings rate = (Income − Expenses) ÷ Income × 100% (same as profit margin)
+        - ROI = (Gain − Cost) ÷ Cost × 100%
+        When performing any calculation: state the formula → substitute numbers → give the result.
+
         FINANCIAL CONTENT RULES:
         - Always reference SPECIFIC numbers from their data — amounts, category names, percentages.
         - Give concrete, actionable advice. Not "spend less on food" — say "Your food spend is GHS 340 this month, up from GHS 210. Try capping it at GHS 280 next week."
