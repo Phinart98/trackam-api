@@ -174,6 +174,9 @@ public class SecurityConfig {
             .map(String::trim)
             .filter(s -> !s.isBlank())
             .toList());
+        // Always allow local dev origins (any localhost port). Low-risk here because auth is
+        // Bearer-token based, not cookie based — an attacker origin can't attach the user's token.
+        config.setAllowedOriginPatterns(List.of("http://localhost:*", "http://127.0.0.1:*"));
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("Authorization", "Content-Type"));
         config.setAllowCredentials(true);

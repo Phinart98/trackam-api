@@ -10,7 +10,12 @@ RUN mvn package -DskipTests -q
 # Stage 2: runtime — minimal JRE image
 FROM eclipse-temurin:21-jre-alpine
 WORKDIR /app
-COPY --from=build /build/target/trackam-api-*.jar app.jar
+
+# Run as non-root to limit blast radius if the container is ever compromised.
+RUN addgroup -S app && adduser -S -G app -H -h /app app
+COPY --from=build --chown=app:app /build/target/trackam-api-*.jar app.jar
+USER app
+
 EXPOSE 8080
 
 ENV JAVA_OPTS="-Xmx512m -Xms256m -XX:+UseG1GC -XX:MaxRAMPercentage=75"

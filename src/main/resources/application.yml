@@ -53,7 +53,6 @@ trackam:
   cors:
     allowed-origins: ${FRONTEND_URL:http://localhost:3000}
   supabase:
-    jwt-secret: ${SUPABASE_JWT_SECRET:}
     project-url: ${SUPABASE_URL:}
   admin:
     user-id: ${TRACKAM_ADMIN_USER_ID:}
