@@ -1,6 +1,6 @@
 # TrackAm API
 
-**Spring Boot backend for [TrackAm](https://github.com/Phinart98/trackam)** — AI-powered financial tracker for Africa's informal economy. BeOrchid Africa Developers Hackathon 2026 (FinTech track).
+**Spring Boot backend for [TrackAm](https://github.com/Phinart98/trackam).** AI-powered financial intelligence for Africans the credit system forgot, from market traders to salaried professionals. The structured transaction history this backend stores is the missing foundation for fair African credit scoring. BeOrchid Africa Developers Hackathon 2026 (FinTech track).
 
 → Live: deployed on Google Cloud Run (`europe-west1`)
 → Frontend repo: [trackam](https://github.com/Phinart98/trackam) (Nuxt 4, deployed on Vercel)
@@ -18,7 +18,7 @@
 
 ## How the AI layer works
 
-The headline isn't "calls an LLM" — it's the **reliability layer** wrapped around every call. Built using Spring AI's structured-output, multimodal, and tool-calling APIs.
+The headline isn't "calls an LLM". It's the **reliability layer** wrapped around every call, built using Spring AI's structured-output, multimodal, and tool-calling APIs.
 
 ### Multi-provider fallback chain — `AiService.callWithFallback`
 
@@ -51,7 +51,7 @@ Receipts and MoMo screenshots go through `parseImage(MultipartFile file, ...)`:
 
 ### Advisor — tool-use with safe scoping (`AiService.askAdvisor`)
 
-Replaced the original RAG approach with Spring AI tool-calling — better for structured financial data.
+Replaced the original RAG approach with Spring AI tool-calling, which works better for structured financial data.
 
 - Gemini Flash receives the user's question + a small compact context (monthly totals, top categories, recent 10 txs)
 - It can invoke `@Tool`-annotated methods on `AdvisorTools` (e.g. `totalSpendByCategory(daysBack)`, `transactionsInRange(...)`)
@@ -111,7 +111,7 @@ Key ones:
 - `FRONTEND_URL` — CORS allowed origin (production; localhost auto-allowed)
 - `GROQ_API_KEY` / `GEMINI_API_KEY` / `CEREBRAS_API_KEY` — at least one must be valid
 
-For local dev, use `application-local.yml` instead of env vars — Spring Boot reads it directly when the `local` profile is active.
+For local dev, use `application-local.yml` instead of env vars. Spring Boot reads it directly when the `local` profile is active.
 
 ## Deployment
 

@@ -1,7 +1,10 @@
 package com.trackam.controller;
 
 import com.trackam.dto.TransactionRequest;
+import com.trackam.exception.TrackAmException;
+import com.trackam.model.BusinessProfile;
 import com.trackam.model.Transaction;
+import com.trackam.repository.BusinessProfileRepository;
 import com.trackam.service.TransactionService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -27,6 +30,7 @@ import java.util.UUID;
 public class TransactionController {
 
     private final TransactionService txService;
+    private final BusinessProfileRepository profileRepo;
 
     @GetMapping
     public ResponseEntity<List<Transaction>> getAll(@AuthenticationPrincipal Jwt jwt) {
@@ -37,8 +41,34 @@ public class TransactionController {
     public ResponseEntity<Transaction> create(
             @RequestBody @Valid TransactionRequest request,
             @AuthenticationPrincipal Jwt jwt) {
+        UUID userId = UUID.fromString(jwt.getSubject());
+        ensureCurrencyMatchesProfile(userId, request.currency());
         return ResponseEntity.status(HttpStatus.CREATED)
-            .body(txService.create(request, UUID.fromString(jwt.getSubject())));
+            .body(txService.create(request, userId));
+    }
+
+    /**
+     * Reject any incoming transaction whose currency doesn't match the user's profile.
+     * Mixing currencies would produce nonsense balances on the dashboard (e.g. GHS-stored
+     * amounts being summed alongside NGN-stored amounts as if they were the same scale).
+     * The /api/transactions/convert-currency endpoint is the only path that should change
+     * a user's stored currency, and it converts every transaction atomically.
+     */
+    private void ensureCurrencyMatchesProfile(UUID userId, String requestCurrency) {
+        if (requestCurrency == null || requestCurrency.isBlank()) {
+            throw new TrackAmException("Transaction currency is required.");
+        }
+        BusinessProfile profile = profileRepo.findById(userId).orElse(null);
+        // No profile yet (very first transaction during onboarding) — let it through;
+        // the profile will be created with this currency by the onboarding flow.
+        if (profile == null || profile.getCurrency() == null) return;
+        if (!profile.getCurrency().equalsIgnoreCase(requestCurrency)) {
+            throw new TrackAmException(
+                "Transaction currency " + requestCurrency
+                    + " does not match profile currency " + profile.getCurrency()
+                    + ". Convert your profile currency first."
+            );
+        }
     }
 
     @DeleteMapping("/{id}")
