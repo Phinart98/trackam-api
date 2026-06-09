@@ -85,8 +85,13 @@ class TransactionCurrencyValidationTest {
     }
 
     @Test
-    @DisplayName("case-insensitive currency match: 'ghs' from frontend accepted against 'GHS' on profile")
+    @DisplayName("internal helper is case-insensitive (defense-in-depth)")
     void currencyMatchIsCaseInsensitive() {
+        // Production HTTP requests can't actually reach this path with lowercase,
+        // because TransactionRequest.currency carries @Pattern("[A-Z]{3,4}") and the
+        // controller uses @Valid — Bean Validation rejects "ghs" with 400 first.
+        // This test exists to lock in the equalsIgnoreCase behaviour of the helper
+        // itself, in case future refactors loosen the upstream validation.
         when(profileRepo.findById(USER_ID)).thenReturn(Optional.of(profileWithCurrency("GHS")));
         when(txService.create(any(TransactionRequest.class), any(UUID.class)))
             .thenReturn(Transaction.builder().id(UUID.randomUUID()).build());

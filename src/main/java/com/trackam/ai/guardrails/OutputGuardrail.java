@@ -66,9 +66,16 @@ public final class OutputGuardrail {
         );
     }
 
+    /**
+     * Returns the validated amount, or BigDecimal.ZERO when the AI couldn't extract one.
+     * The frontend treats amount=0 as "needs user input" and prompts inline rather than
+     * showing a hard error. This keeps the parse usable when the user gave context but
+     * not a number (e.g. "Bought tomatoes at Accra"): description, vendor, category, and
+     * type are still populated, the user just fills in the amount.
+     */
     private static BigDecimal validateAmount(BigDecimal amount) {
         if (amount == null || amount.compareTo(MIN_AMOUNT) < 0) {
-            throw new TrackAmException("AI returned invalid amount. Please enter manually.");
+            return BigDecimal.ZERO;
         }
         if (amount.compareTo(MAX_AMOUNT) > 0) {
             throw new TrackAmException("Amount exceeds maximum (1,000,000). Please verify.");

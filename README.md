@@ -10,7 +10,7 @@
 
 ## Stack
 
-- **Java 21** · **Spring Boot 3.4** · **Spring AI 1.0.3**
+- **Java 21** · **Spring Boot 3.4** · **Spring AI 1.0.4**
 - **PostgreSQL 17 + pgvector** via Supabase (transaction pooler, `prepareThreshold=0`)
 - **Supabase Auth** — JWT validated via JWKS (ES256), no shared secret
 - **AI providers**: Groq (Llama 4 Scout vision), Google Gemini Flash-Lite / Flash (text + tool-use), Cerebras gpt-oss-120b (fallback)
@@ -49,15 +49,17 @@ Receipts and MoMo screenshots go through `parseImage(MultipartFile file, ...)`:
 3. `callWithFallback` chain: Groq Llama 4 Scout (vision) → Gemini Flash (vision)
 4. Structured output → same `ParsedTransactionResponse` DTO as text parse
 
-### Advisor — tool-use with safe scoping (`AiService.askAdvisor`)
+### Advisor — context-stuffing with server-side data scoping (`AiService.askAdvisor`)
 
-Replaced the original RAG approach with Spring AI tool-calling, which works better for structured financial data.
+The advisor answers questions grounded in the user's real transactions. Earlier iterations used Spring AI tool-calling, but for an interactive chat the extra round-trips made first-token latency too slow. Current implementation uses **server-controlled context stuffing**, which is faster and equally safe.
 
-- Gemini Flash receives the user's question + a small compact context (monthly totals, top categories, recent 10 txs)
-- It can invoke `@Tool`-annotated methods on `AdvisorTools` (e.g. `totalSpendByCategory(daysBack)`, `transactionsInRange(...)`)
-- **Critical:** each tool reads `userId` from Spring AI's `ToolContext`, not from the LLM's tool args — Gemini cannot hallucinate or substitute a different user's ID
-- Tools run real SQL via `TransactionRepository`; result is fed back into the chat turn
-- Conversation history persisted to `chat_sessions` + `chat_messages` for multi-turn
+- For each turn, the backend loads the authenticated user's transactions from Postgres (scoped by `userId` from the JWT subject, never trusted from the chat input).
+- `buildCompactContext` aggregates these into a token-efficient summary: monthly income/expense totals, top categories, the 10 most recent transactions. Best-practice context engineering rather than dumping raw rows.
+- The system prompt combines this aggregated context with `AdvisorPrompt.SYSTEM` and the last 6 conversation messages as proper role-based history (`UserMessage` / `AssistantMessage`).
+- The model never sees other users' data. There is no LLM-controlled tool argument that could be hallucinated to fetch a different user's records.
+- Conversation history persisted to `chat_sessions` + `chat_messages` for multi-turn.
+
+`AdvisorTools` exists in the source tree as the scaffolding for future tool-calling, kept behind a feature decision rather than deleted.
 
 ### Input + output guardrails
 
