@@ -223,10 +223,16 @@ public class AiService {
     }
 
     /**
-     * Financial advisor: uses tool-calling with fallback to context stuffing.
+     * Financial advisor: server-controlled context stuffing.
      *
-     * Primary: Gemini Flash calls @Tool methods (SQL queries on user's transactions).
-     * Fallback: If tool-calling fails, stuff all transactions into the prompt as context.
+     * Loads the authenticated user's transactions from Postgres (scoped by the JWT subject,
+     * never trusted from chat input), aggregates them into a token-efficient summary via
+     * buildCompactContext, and stuffs that summary into the system prompt. The LLM has no
+     * input field that could be used to request a different user's data.
+     *
+     * Tool-calling was tried earlier but the extra round-trips made first-token latency
+     * too slow for chat. AdvisorTools is preserved in the source tree as scaffolding if
+     * we revisit tools in a future iteration.
      */
     @Transactional
     public AdvisorResponse askAdvisor(String question, AdvisorRequest.AdvisorContext ctx,
@@ -437,8 +443,9 @@ public class AiService {
     }
 
     /**
-     * Build financial context from the frontend-provided summary.
-     * This gives the LLM baseline numbers even before tool calls.
+     * Build the headline financial summary line shown to the LLM at the top of the
+     * advisor system prompt. The detailed per-transaction context is appended later
+     * by buildCompactContext.
      */
     private String buildFinancialContext(AdvisorRequest.AdvisorContext ctx) {
         if (ctx == null) return "";
@@ -450,7 +457,7 @@ public class AiService {
             cur, income, expenses, balance,
             ctx.topCategory(),
             ctx.transactionCount(),
-            "(Detailed data available via tools — ask specific questions for analysis)"
+            "(Use the transaction context above to answer specific questions.)"
         );
     }
 

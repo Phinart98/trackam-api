@@ -52,7 +52,7 @@ public class AiConfig {
         return ChatClient.builder(model).build();
     }
 
-    /** Gemini 2.5 Flash — complex reasoning, tool-use advisor. */
+    /** Gemini 2.5 Flash — complex reasoning, advisor chat fallback. */
     @Bean
     public ChatClient geminiFlashChatClient(OpenAiApi baseOpenAiApi, OpenAiChatModel baseChatModel) {
         OpenAiApi geminiApi = baseOpenAiApi.mutate()

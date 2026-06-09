@@ -13,12 +13,12 @@
 - **Java 21** · **Spring Boot 3.4** · **Spring AI 1.0.4**
 - **PostgreSQL 17 + pgvector** via Supabase (transaction pooler, `prepareThreshold=0`)
 - **Supabase Auth** — JWT validated via JWKS (ES256), no shared secret
-- **AI providers**: Groq (Llama 4 Scout vision), Google Gemini Flash-Lite / Flash (text + tool-use), Cerebras gpt-oss-120b (fallback)
+- **AI providers**: Groq (Llama 4 Scout vision), Google Gemini Flash-Lite / Flash (text parsing + advisor chat), Cerebras gpt-oss-120b (fallback)
 - **Container**: Docker multi-stage, non-root `app` user, JRE-alpine runtime
 
 ## How the AI layer works
 
-The headline isn't "calls an LLM". It's the **reliability layer** wrapped around every call, built using Spring AI's structured-output, multimodal, and tool-calling APIs.
+The headline isn't "calls an LLM". It's the **reliability layer** wrapped around every call, built on Spring AI's structured-output and multimodal APIs.
 
 ### Multi-provider fallback chain — `AiService.callWithFallback`
 
@@ -142,7 +142,7 @@ src/main/java/com/trackam/
 ├── ai/
 │   ├── prompts: TextParserPrompt, ImageParserPrompt, AdvisorPrompt, InsightPrompt, CategoryPromptHelper
 │   ├── guardrails/      # InputGuardrail, OutputGuardrail
-│   └── tools/           # AdvisorTools — @Tool methods scoped via ToolContext userId
+│   └── tools/           # AdvisorTools — scaffolding for future tool-calling (not wired into the current advisor path)
 └── exception/           # TrackAmException, GlobalExceptionHandler (sanitizes errors)
 src/main/resources/
 ├── application.yml      # Shared config (env-driven)
