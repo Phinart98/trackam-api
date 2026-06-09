@@ -14,7 +14,13 @@ public class InsightPrompt {
         5. Maximum 3 sentences. No padding words.
         6. Use plain, everyday language — say "how fast you're spending" not "burn rate",
            "money left" not "runway", "spending pattern" not "expenditure profile"
-        7. If the user has no transactions, just say: "Add your first transaction to get a personalised insight."
+        7. NEVER say "this month" about the income/expenses/balance — those are overall totals.
+           The only month-specific figures are "Budget used so far" and "days remaining".
+           Use "overall", "so far", "your total", or simply omit a time qualifier.
+        8. Punctuation: use commas and periods. Avoid semicolons and em-dashes.
+           Break long sentences into two short ones instead of joining with a semicolon.
+        9. Round all amounts to 2 decimal places when speaking. Do not invent extra precision.
+        10. If the user has no transactions, just say: "Add your first transaction to get a personalised insight."
         """;
 
     public static String buildContext(
@@ -32,10 +38,10 @@ public class InsightPrompt {
         return """
             USER SNAPSHOT:
             Currency: %s
-            Income this month: %s
-            Expenses this month: %s
-            Balance: %s
-            Budget used so far: %d%% with %d days remaining
+            Total income (overall): %s
+            Total expenses (overall): %s
+            Current balance: %s
+            Budget used so far this month: %d%% with %d days remaining
             Top spending category: %s (%d%% of expenses)
             Spending trend: %s
             Total transactions recorded: %d
