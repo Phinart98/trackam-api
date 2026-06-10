@@ -17,7 +17,9 @@ public interface AuditLogRepository extends JpaRepository<AuditLog, UUID> {
     @Query("SELECT a.aiProvider, COUNT(a), AVG(a.latencyMs), SUM(CASE WHEN a.success THEN 1 ELSE 0 END) FROM AuditLog a GROUP BY a.aiProvider")
     List<Object[]> getProviderMetrics();
 
-    @Query("SELECT COUNT(a) FROM AuditLog a WHERE a.userId = :userId AND a.createdAt > :since")
+    // success = true only: each fallback hop writes its own audit row, so counting raw rows
+    // would burn up to 4x the user's daily budget per request on a degraded-provider day.
+    @Query("SELECT COUNT(a) FROM AuditLog a WHERE a.userId = :userId AND a.success = true AND a.createdAt > :since")
     long countRecentCallsByUser(@Param("userId") UUID userId, @Param("since") java.time.Instant since);
 
     // Anonymize on user deletion — keep records for financial compliance, remove PII

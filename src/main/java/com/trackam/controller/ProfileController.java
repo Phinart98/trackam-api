@@ -1,8 +1,10 @@
 package com.trackam.controller;
 
 import com.trackam.dto.ProfileRequest;
+import com.trackam.exception.TrackAmException;
 import com.trackam.model.BusinessProfile;
 import com.trackam.repository.BusinessProfileRepository;
+import com.trackam.repository.TransactionRepository;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -24,6 +26,7 @@ import java.util.UUID;
 public class ProfileController {
 
     private final BusinessProfileRepository profileRepo;
+    private final TransactionRepository transactionRepo;
 
     @GetMapping
     public ResponseEntity<BusinessProfile> getProfile(@AuthenticationPrincipal Jwt jwt) {
@@ -39,7 +42,18 @@ public class ProfileController {
             @RequestBody @Valid ProfileRequest req,
             @AuthenticationPrincipal Jwt jwt) {
         UUID userId = UUID.fromString(jwt.getSubject());
-        boolean exists = profileRepo.existsById(userId);
+        BusinessProfile existing = profileRepo.findById(userId).orElse(null);
+        boolean exists = existing != null;
+        // A currency change must come AFTER /api/transactions/convert-currency, otherwise
+        // old-currency amounts get summed under the new label (the mixed-currency bug).
+        // The convert endpoint rewrites every transaction's currency, so a converted user
+        // passes this check; an unconverted one is told what to do first.
+        if (exists && existing.getCurrency() != null
+                && !existing.getCurrency().equalsIgnoreCase(req.currency())
+                && transactionRepo.existsByUserIdAndCurrencyNotIgnoreCase(userId, req.currency())) {
+            throw new TrackAmException(
+                "Convert existing transactions to " + req.currency() + " first, then change the profile currency.");
+        }
         BusinessProfile profile = BusinessProfile.builder()
             .id(userId)
             .businessName(req.businessName())

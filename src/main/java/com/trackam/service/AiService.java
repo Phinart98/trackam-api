@@ -32,7 +32,6 @@ import org.springframework.core.io.ByteArrayResource;
 import org.springframework.core.io.Resource;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.MimeTypeUtils;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -153,7 +152,9 @@ public class AiService {
         String todayForImage = java.time.LocalDate.now(ZoneOffset.UTC).toString();
         var media = new Media(mimeType, imageResource);
         var userMessage = UserMessage.builder()
-            .text("Today's date: " + todayForImage + "\nExtract all transactions from this image. Return structured JSON.")
+            // "the PRIMARY transaction", singular — must match ImageParserPrompt, which demands
+            // a single JSON object; asking for "all transactions" invites an array the schema rejects.
+            .text("Today's date: " + todayForImage + "\nExtract the transaction from this image. Return structured JSON.")
             .media(List.of(media))
             .build();
 
@@ -190,7 +191,8 @@ public class AiService {
             } catch (Exception fallbackEx) {
                 auditService.log(userId, "parse-image", "gemini-flash",
                     System.currentTimeMillis() - fallbackStart, false, fallbackEx.getMessage());
-                throw new TrackAmException("Image parsing failed. Please try text or manual input.");
+                throw new TrackAmException("Image parsing failed. Please try text or manual input.",
+                    fallbackEx, org.springframework.http.HttpStatus.SERVICE_UNAVAILABLE);
             }
         }
     }
@@ -234,7 +236,10 @@ public class AiService {
      * too slow for chat. AdvisorTools is preserved in the source tree as scaffolding if
      * we revisit tools in a future iteration.
      */
-    @Transactional
+    // Deliberately NOT @Transactional: that would pin a Hikari connection (pool max 5)
+    // across the whole LLM fallback chain (up to 4 providers x 30s each). saveAll below
+    // runs in its own transaction, so both messages still persist atomically; the only
+    // trade-off is a possible empty session row if the AI call fails after resolveSession.
     public AdvisorResponse askAdvisor(String question, AdvisorRequest.AdvisorContext ctx,
                                       UUID sessionId, UUID userId) {
         checkDailyLimit(userId);
@@ -263,7 +268,8 @@ public class AiService {
         // Tool-calling was removed: the extra round-trips made responses too slow for chat.
         String reply = advisorWithContextStuffing(userId, question, systemPrompt, historyMessages);
 
-        // Both messages persisted atomically — if the AI call above threw, neither is saved.
+        // saveAll runs in a single transaction, so both messages persist atomically.
+        // If the AI call above threw, this line is never reached and neither is saved.
         chatMessageRepo.saveAll(List.of(
             ChatMessage.builder().userId(userId).sessionId(session.getId()).role(ChatMessage.ROLE_USER).content(question).build(),
             ChatMessage.builder().userId(userId).sessionId(session.getId()).role(ChatMessage.ROLE_ASSISTANT).content(reply).build()
@@ -280,16 +286,26 @@ public class AiService {
         "sounds", "makes", "sense", "course", "awesome", "wow", "lol", "haha"
     );
 
+    // Words that signal a real financial question even inside a short, social-sounding
+    // message ("thanks, what's my balance" must NOT skip the data context).
+    private static final Set<String> FINANCIAL_HINT_WORDS = Set.of(
+        "balance", "spend", "spent", "spending", "income", "expense", "expenses",
+        "money", "profit", "budget", "save", "savings", "saving", "cash", "sales",
+        "much", "owe", "debt", "loan", "earn", "earned", "cost", "paid", "pay"
+    );
+
     /** True if the message is clearly social/conversational — no financial context needed. */
     private boolean isConversational(String question) {
         if (question == null) return false;
         String lower = question.trim().toLowerCase().replaceAll("[^a-z\\s]", "");
         String[] words = lower.split("\\s+");
         if (words.length > 6) return false; // longer messages likely contain a real question
+        boolean social = false;
         for (String word : words) {
-            if (CONVERSATIONAL_WORDS.contains(word)) return true;
+            if (FINANCIAL_HINT_WORDS.contains(word)) return false;
+            if (CONVERSATIONAL_WORDS.contains(word)) social = true;
         }
-        return false;
+        return social;
     }
 
     /**
@@ -497,7 +513,7 @@ public class AiService {
             }
         }
         throw new TrackAmException("All AI providers failed. Please try again later.",
-            lastException);
+            lastException, org.springframework.http.HttpStatus.SERVICE_UNAVAILABLE);
     }
 
     private ChatClient selectClient(String provider) {

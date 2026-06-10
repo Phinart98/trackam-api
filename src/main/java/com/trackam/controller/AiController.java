@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 import com.trackam.ai.guardrails.InputGuardrail;
+import com.trackam.exception.TrackAmException;
 import com.trackam.dto.AdvisorRequest;
 import com.trackam.dto.AdvisorResponse;
 import com.trackam.dto.InsightRequest;
@@ -31,12 +32,20 @@ public class AiController {
 
     private final AiService aiService;
 
+    // The currency string is interpolated into AI prompts; same validation as FxController
+    // so free-text can't ride along in what should be a 3-4 letter code.
+    private static String resolveCurrency(String currency) {
+        if (currency == null || currency.isBlank()) return DEFAULT_CURRENCY;
+        if (!currency.matches("[A-Za-z]{3,4}")) throw new TrackAmException("Invalid currency code.");
+        return currency;
+    }
+
     @PostMapping("/parse-text")
     public ResponseEntity<ParsedTransactionResponse> parseText(
             @RequestBody @Valid ParseTextRequest request,
             @AuthenticationPrincipal Jwt jwt) {
         UUID userId = UUID.fromString(jwt.getSubject());
-        String currency = request.currency() != null ? request.currency() : DEFAULT_CURRENCY;
+        String currency = resolveCurrency(request.currency());
         return ResponseEntity.ok(aiService.parseText(request.text(), currency, userId));
     }
 
@@ -46,7 +55,7 @@ public class AiController {
             @RequestParam(value = "currency", required = false) String currency,
             @AuthenticationPrincipal Jwt jwt) throws IOException {
         UUID userId = UUID.fromString(jwt.getSubject());
-        String userCurrency = (currency != null && !currency.isBlank()) ? currency : DEFAULT_CURRENCY;
+        String userCurrency = resolveCurrency(currency);
         return ResponseEntity.ok(aiService.parseImage(file, userCurrency, userId));
     }
 

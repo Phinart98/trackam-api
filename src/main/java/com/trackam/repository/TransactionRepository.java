@@ -35,6 +35,8 @@ public interface TransactionRepository extends JpaRepository<Transaction, UUID> 
     @Query("SELECT COUNT(t) FROM Transaction t WHERE t.userId = :userId")
     long countByUserId(@Param("userId") UUID userId);
 
+    boolean existsByUserIdAndCurrencyNotIgnoreCase(UUID userId, String currency);
+
     @Query(value = "SELECT t.currency FROM transactions t WHERE t.user_id = :userId ORDER BY t.date DESC LIMIT 1", nativeQuery = true)
     Optional<String> findLatestCurrencyByUserId(@Param("userId") UUID userId);
 

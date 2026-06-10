@@ -70,11 +70,8 @@ trackam:
       api-key: ${CEREBRAS_API_KEY:}
       base-url: https://api.cerebras.ai/v1
       model: gpt-oss-120b
-    provider-routing:
-      vision: groq
-      text: gemini-lite
-      complex: gemini-flash
-    fallback-order: groq,gemini-lite,gemini-flash,cerebras
+    # Provider routing and fallback order are hardcoded in AiService — deliberately not
+    # config-driven, so the chain order is visible at the call site next to its rationale.
 
 logging:
   level:

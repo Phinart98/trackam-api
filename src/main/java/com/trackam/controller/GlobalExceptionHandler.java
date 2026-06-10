@@ -21,7 +21,9 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
     @ExceptionHandler(TrackAmException.class)
     public ProblemDetail handleTrackAmException(TrackAmException ex) {
-        return ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, sanitize(ex.getMessage()));
+        // Defaults to 400; total AI-provider outage carries 503 so clients can
+        // tell "your input is wrong" from "try again in a minute".
+        return ProblemDetail.forStatusAndDetail(ex.getStatus(), sanitize(ex.getMessage()));
     }
 
     @ExceptionHandler(IllegalArgumentException.class)
