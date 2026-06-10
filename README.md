@@ -120,11 +120,11 @@ For local dev, use `application-local.yml` instead of env vars. Spring Boot read
 
 ## Deployment
 
-Deploys to Google Cloud Run via a Cloud Build trigger on push to `master`:
+Deploys to Google Cloud Run via GitHub Actions ([`.github/workflows/deploy.yml`](.github/workflows/deploy.yml)) on push to `master`:
 
 ```
-GitHub push → Cloud Build → Docker (multi-stage) → Artifact Registry
-              → Cloud Run deploy (europe-west1, --cpu-boost, min-instances=0)
+GitHub push → Actions: mvn package → Docker build (multi-stage) → Artifact Registry
+              → gcloud run deploy (europe-west1, min-instances=0)
 ```
 
 The image is tagged with the git SHA. Health check: `wget /actuator/health` every 30s with a 60s start-up grace period.
