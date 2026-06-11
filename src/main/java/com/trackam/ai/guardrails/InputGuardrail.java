@@ -38,6 +38,16 @@ public final class InputGuardrail {
 
     private InputGuardrail() {}
 
+    /**
+     * Single home for the currency-code shape check. Codes flow into AI prompts,
+     * FX lookup URLs, and bulk conversion SQL — every entry point must agree.
+     */
+    public static void validateCurrencyCode(String code) {
+        if (code == null || !code.matches("[A-Za-z]{3,4}")) {
+            throw new IllegalArgumentException("Invalid currency code.");
+        }
+    }
+
     public static void validateText(String input) {
         if (input == null || input.isBlank()) {
             throw new IllegalArgumentException("Input text cannot be empty.");

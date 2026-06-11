@@ -1,5 +1,6 @@
 package com.trackam.service;
 
+import com.trackam.ai.guardrails.InputGuardrail;
 import com.trackam.dto.TransactionRequest;
 import com.trackam.exception.TrackAmException;
 import com.trackam.model.Transaction;
@@ -113,9 +114,8 @@ public class TransactionService {
     @Transactional
     public int convertCurrency(UUID userId, String fromCurrency, String toCurrency) {
         if (fromCurrency == null || toCurrency == null || fromCurrency.equalsIgnoreCase(toCurrency)) return 0;
-        if (!fromCurrency.matches("[A-Za-z]{3,4}") || !toCurrency.matches("[A-Za-z]{3,4}")) {
-            throw new TrackAmException("Invalid currency code.");
-        }
+        InputGuardrail.validateCurrencyCode(fromCurrency);
+        InputGuardrail.validateCurrencyCode(toCurrency);
 
         // Per-transaction historical rate conversion
         List<Transaction> transactions = repo.findByUserIdOrderByDateDescCreatedAtDesc(userId);

@@ -48,8 +48,7 @@ public class ProfileController {
         // old-currency amounts get summed under the new label (the mixed-currency bug).
         // The convert endpoint rewrites every transaction's currency, so a converted user
         // passes this check; an unconverted one is told what to do first.
-        if (exists && existing.getCurrency() != null
-                && !existing.getCurrency().equalsIgnoreCase(req.currency())
+        if (exists && !existing.getCurrency().equalsIgnoreCase(req.currency())
                 && transactionRepo.existsByUserIdAndCurrencyNotIgnoreCase(userId, req.currency())) {
             throw new TrackAmException(
                 "Convert existing transactions to " + req.currency() + " first, then change the profile currency.");

@@ -40,6 +40,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.YearMonth;
 import java.time.ZoneOffset;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -49,6 +50,7 @@ import java.util.UUID;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
@@ -192,7 +194,7 @@ public class AiService {
                 auditService.log(userId, "parse-image", "gemini-flash",
                     System.currentTimeMillis() - fallbackStart, false, fallbackEx.getMessage());
                 throw new TrackAmException("Image parsing failed. Please try text or manual input.",
-                    fallbackEx, org.springframework.http.HttpStatus.SERVICE_UNAVAILABLE);
+                    fallbackEx, HttpStatus.SERVICE_UNAVAILABLE);
             }
         }
     }
@@ -300,12 +302,9 @@ public class AiService {
         String lower = question.trim().toLowerCase().replaceAll("[^a-z\\s]", "");
         String[] words = lower.split("\\s+");
         if (words.length > 6) return false; // longer messages likely contain a real question
-        boolean social = false;
-        for (String word : words) {
-            if (FINANCIAL_HINT_WORDS.contains(word)) return false;
-            if (CONVERSATIONAL_WORDS.contains(word)) social = true;
-        }
-        return social;
+        // Financial words dominate: "thanks, what's my balance" must keep its data context.
+        if (Arrays.stream(words).anyMatch(FINANCIAL_HINT_WORDS::contains)) return false;
+        return Arrays.stream(words).anyMatch(CONVERSATIONAL_WORDS::contains);
     }
 
     /**
@@ -513,7 +512,7 @@ public class AiService {
             }
         }
         throw new TrackAmException("All AI providers failed. Please try again later.",
-            lastException, org.springframework.http.HttpStatus.SERVICE_UNAVAILABLE);
+            lastException, HttpStatus.SERVICE_UNAVAILABLE);
     }
 
     private ChatClient selectClient(String provider) {

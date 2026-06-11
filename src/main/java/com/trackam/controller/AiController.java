@@ -15,7 +15,6 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 import com.trackam.ai.guardrails.InputGuardrail;
-import com.trackam.exception.TrackAmException;
 import com.trackam.dto.AdvisorRequest;
 import com.trackam.dto.AdvisorResponse;
 import com.trackam.dto.InsightRequest;
@@ -32,11 +31,11 @@ public class AiController {
 
     private final AiService aiService;
 
-    // The currency string is interpolated into AI prompts; same validation as FxController
-    // so free-text can't ride along in what should be a 3-4 letter code.
+    // The currency string is interpolated into AI prompts, so it must be a real
+    // 3-4 letter code, not free text riding along.
     private static String resolveCurrency(String currency) {
         if (currency == null || currency.isBlank()) return DEFAULT_CURRENCY;
-        if (!currency.matches("[A-Za-z]{3,4}")) throw new TrackAmException("Invalid currency code.");
+        InputGuardrail.validateCurrencyCode(currency);
         return currency;
     }
 

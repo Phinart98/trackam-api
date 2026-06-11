@@ -1,5 +1,6 @@
 package com.trackam.controller;
 
+import com.trackam.ai.guardrails.InputGuardrail;
 import com.trackam.service.ExchangeRateService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -33,9 +34,8 @@ public class FxController {
             @RequestParam String from,
             @RequestParam String to) {
 
-        if (!from.matches("[A-Za-z]{3,4}") || !to.matches("[A-Za-z]{3,4}")) {
-            return ResponseEntity.badRequest().build();
-        }
+        InputGuardrail.validateCurrencyCode(from);
+        InputGuardrail.validateCurrencyCode(to);
 
         if (from.equalsIgnoreCase(to)) {
             return ResponseEntity.ok(Map.of("rate", BigDecimal.ONE, "from", from.toUpperCase(), "to", to.toUpperCase()));
