@@ -424,7 +424,8 @@ public class AiService {
                 lastException = e;
             }
         }
-        throw new TrackAmException("All AI providers failed. Please try again later.", lastException);
+        throw new TrackAmException("All AI providers failed. Please try again later.",
+            lastException, HttpStatus.SERVICE_UNAVAILABLE);
     }
 
     /**
@@ -589,7 +590,8 @@ public class AiService {
         } catch (Exception e) {
             auditService.log(userId, "transcribe", "groq", System.currentTimeMillis() - start, false, e.getMessage());
             log.warn("Transcription failed for user {}: {}", userId, e.getClass().getSimpleName());
-            throw new TrackAmException("Transcription failed. Please try again.");
+            throw new TrackAmException("Transcription failed. Please try again.",
+                e, HttpStatus.SERVICE_UNAVAILABLE);
         }
     }
 
