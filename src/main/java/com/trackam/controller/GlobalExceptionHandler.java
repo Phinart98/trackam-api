@@ -1,6 +1,7 @@
 package com.trackam.controller;
 
 import com.trackam.exception.TrackAmException;
+import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -46,6 +47,18 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
             .orElse("Invalid request");
         return ResponseEntity.badRequest().body(
             ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, detail));
+    }
+
+    // Bean Validation failures raised at the persistence layer (e.g. an entity @Size
+    // exceeded). Without this they'd fall through to handleRuntime → 500; here they
+    // surface as a clean 400. The constraint messages are safe, schema-free text.
+    @ExceptionHandler(ConstraintViolationException.class)
+    public ProblemDetail handleConstraintViolation(ConstraintViolationException ex) {
+        String detail = ex.getConstraintViolations().stream()
+            .map(v -> v.getPropertyPath() + ": " + v.getMessage())
+            .findFirst()
+            .orElse("Invalid request");
+        return ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, detail);
     }
 
     @ExceptionHandler(AccessDeniedException.class)

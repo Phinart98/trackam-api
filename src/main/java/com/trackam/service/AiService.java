@@ -270,11 +270,16 @@ public class AiService {
         // Tool-calling was removed: the extra round-trips made responses too slow for chat.
         String reply = advisorWithContextStuffing(userId, question, systemPrompt, historyMessages);
 
+        // Clamp the assistant reply to the column limit so a long-winded model response
+        // is stored (clipped) rather than blowing up the insert on the chat_messages
+        // char_length(content) <= 5000 check. The user question is already capped at 500.
+        String safeReply = reply.length() > 5000 ? reply.substring(0, 5000) : reply;
+
         // saveAll runs in a single transaction, so both messages persist atomically.
         // If the AI call above threw, this line is never reached and neither is saved.
         chatMessageRepo.saveAll(List.of(
             ChatMessage.builder().userId(userId).sessionId(session.getId()).role(ChatMessage.ROLE_USER).content(question).build(),
-            ChatMessage.builder().userId(userId).sessionId(session.getId()).role(ChatMessage.ROLE_ASSISTANT).content(reply).build()
+            ChatMessage.builder().userId(userId).sessionId(session.getId()).role(ChatMessage.ROLE_ASSISTANT).content(safeReply).build()
         ));
 
         return new AdvisorResponse(reply, session.getId().toString());
@@ -528,9 +533,13 @@ public class AiService {
 
     private ChatSession resolveSession(UUID sessionId, UUID userId, String firstMessage) {
         if (sessionId != null) {
+            // A supplied session id must exist and belong to the caller. Silently minting a
+            // new session here would surprise the client (200 with a different id); reject
+            // instead. We return 404 even for a foreign-owned session so we never confirm
+            // another user's session exists.
             return chatSessionRepo.findById(sessionId)
                 .filter(s -> s.getUserId().equals(userId))
-                .orElseGet(() -> createSession(userId, firstMessage));
+                .orElseThrow(() -> new TrackAmException("Chat session not found", HttpStatus.NOT_FOUND));
         }
         return createSession(userId, firstMessage);
     }

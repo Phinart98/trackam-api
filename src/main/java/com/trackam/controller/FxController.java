@@ -17,6 +17,11 @@ import java.util.Map;
 /**
  * Lightweight FX rate endpoint — returns the current exchange rate between two currencies.
  * Used by the frontend for live conversion previews (e.g. goal fund modal).
+ *
+ * Authentication: required. This is intentionally not whitelisted in SecurityConfig, so it
+ * falls under {@code anyRequest().authenticated()} — only the signed-in app calls it. The
+ * data is benign public market data, but keeping it authenticated matches our secure-by-default
+ * posture and avoids it being used as an unauthenticated proxy to the upstream FX provider.
  */
 @RestController
 @RequestMapping("/api/fx")

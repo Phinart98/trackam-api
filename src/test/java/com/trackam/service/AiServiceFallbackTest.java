@@ -3,6 +3,7 @@ package com.trackam.service;
 import com.trackam.config.AppProperties;
 import com.trackam.dto.ParsedTransactionResponse;
 import com.trackam.exception.TrackAmException;
+import com.trackam.model.ChatSession;
 import com.trackam.repository.ChatMessageRepository;
 import com.trackam.repository.ChatSessionRepository;
 import com.trackam.repository.CustomCategoryRepository;
@@ -18,6 +19,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.client.RestTemplate;
 
 import java.math.BigDecimal;
@@ -156,6 +158,38 @@ class AiServiceFallbackTest {
 
         // No provider attempts should have been logged
         verify(auditService, never()).log(any(UUID.class), eq("parse-text"), anyString(), anyLong(), anyBoolean(), any());
+    }
+
+    @Test
+    @DisplayName("advisor: sessionId owned by another user → 404, nothing persisted")
+    void foreignSessionIdRejected() {
+        UUID foreignSessionId = UUID.randomUUID();
+        ChatSession otherUsersSession = ChatSession.builder()
+            .id(foreignSessionId)
+            .userId(UUID.randomUUID()) // belongs to someone else
+            .build();
+        when(chatSessionRepo.findById(foreignSessionId)).thenReturn(Optional.of(otherUsersSession));
+
+        assertThatThrownBy(() -> aiService.askAdvisor("How am I doing this month?", null, foreignSessionId, USER_ID))
+            .isInstanceOfSatisfying(TrackAmException.class,
+                e -> assertThat(e.getStatus()).isEqualTo(HttpStatus.NOT_FOUND));
+
+        // The AI chain is never reached and no chat history is written.
+        verify(chatMessageRepo, never()).saveAll(any());
+    }
+
+    @Test
+    @DisplayName("advisor: unknown sessionId → 404, no silent new session created")
+    void unknownSessionIdRejected() {
+        UUID unknownSessionId = UUID.randomUUID();
+        when(chatSessionRepo.findById(unknownSessionId)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> aiService.askAdvisor("How am I doing this month?", null, unknownSessionId, USER_ID))
+            .isInstanceOfSatisfying(TrackAmException.class,
+                e -> assertThat(e.getStatus()).isEqualTo(HttpStatus.NOT_FOUND));
+
+        verify(chatSessionRepo, never()).save(any());
+        verify(chatMessageRepo, never()).saveAll(any());
     }
 
     // ─── helpers ──────────────────────────────────────────────────────────

@@ -58,6 +58,11 @@ public class TransactionService {
         float[] embedding = embeddingService.embed(textToEmbed);
         if (embedding != null) {
             tx.setEmbedding(embedding);
+        } else {
+            // Save anyway, but surface it: a null embedding silently drops this row from
+            // RAG similarity search, degrading advisor quality without any user-visible error.
+            log.warn("Embedding unavailable for transaction (user={}, category={}); saved without it.",
+                userId, req.category());
         }
 
         return repo.save(tx);

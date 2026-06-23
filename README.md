@@ -88,6 +88,12 @@ A sliding-window per-`userId` rate limiter on `/api/ai/**`: 60 requests per minu
 - **GDPR endpoints.** `GET /api/user/export` and `DELETE /api/user/data`, both scoped by the JWT subject. Delete cascades chat, categories, goals, transactions, and profile.
 - **Container hardening.** The Dockerfile runtime stage runs as non-root `app:app`, with the JAR copied using `--chown=app:app`.
 
+## Money & precision
+
+Monetary amounts are stored and computed as **`BigDecimal`** in Java and **`DECIMAL(19,4)`** in Postgres — never floating-point — across transactions, goals, budgets, and FX conversion (`ExchangeRateService` uses `MathContext.DECIMAL128` with `HALF_UP` rounding). This backend is the authoritative system of record for every figure that touches money.
+
+The Nuxt frontend uses JavaScript `number` for amounts by design: it is a display and estimation layer, every value is rounded to two decimals before it is shown, and IEEE-754 error for 2-decimal currency values stays far below one pesewa at any realistic transaction volume. The one place the client computes a value that gets persisted — manual foreign-currency entry — pulls the *rate* from this backend's `/api/fx/rate`, rounds once through a shared `roundMoney` helper, and sends it here, where it is re-stored as `BigDecimal`.
+
 ## Local setup
 
 **Prerequisites:** Java 21, Maven 3.9+

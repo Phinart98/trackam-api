@@ -6,6 +6,7 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -41,6 +42,7 @@ public class ChatMessage {
     @Column(nullable = false)
     private String role; // ROLE_USER | ROLE_ASSISTANT
 
+    @Size(max = 5000) // mirrors the DB char_length(content) <= 5000 check
     @Column(nullable = false, columnDefinition = "TEXT")
     private String content;
 
