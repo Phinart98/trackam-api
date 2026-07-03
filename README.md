@@ -11,7 +11,7 @@
 ## Stack
 
 - **Java 21** · **Spring Boot 3.4** · **Spring AI 1.0.4**
-- **PostgreSQL 17 + pgvector** via Supabase (transaction pooler, `prepareThreshold=0`)
+- **PostgreSQL 17 + pgvector** via Supabase (connection pooler, `prepareThreshold=0`)
 - **Supabase Auth** with the JWT validated via JWKS (ES256), no shared secret
 - **AI providers**: Groq (Llama 4 Scout vision), Google Gemini Flash-Lite / Flash (text parsing + advisor chat), Cerebras gpt-oss-120b (fallback)
 - **Container**: Docker multi-stage, non-root `app` user, JRE-alpine runtime
@@ -116,7 +116,7 @@ The API runs at `http://localhost:8080`. Hit `http://localhost:8080/actuator/hea
 See `.env.example` for the full list used in production (Cloud Run).
 
 Key ones:
-- `SUPABASE_JDBC_URL` must use port `6543` (transaction pooler) with `prepareThreshold=0`
+- `SUPABASE_JDBC_URL` points at the Supabase pooler host on port `5432` with `prepareThreshold=0` (kept for pgbouncer compatibility)
 - `SUPABASE_DB_USER` / `SUPABASE_DB_PASSWORD`
 - `SUPABASE_URL`, used to build the JWKS URI (`/auth/v1/.well-known/jwks.json`)
 - `FRONTEND_URL`, the CORS allowed origin in production (localhost is auto-allowed)

@@ -13,15 +13,19 @@ import org.springframework.context.annotation.Primary;
 /**
  * Multi-provider AI configuration.
  *
- * Spring Boot auto-configures Groq as the primary provider via spring.ai.openai.*.
- * Gemini and Cerebras beans are derived from the auto-configured base using mutate() —
- * same retry/serialization logic, different base URL and API key.
+ * Spring Boot auto-configures Groq as the @Primary bean (the default when a bare
+ * ChatClient is injected). The per-operation fallback ORDER is defined at the call
+ * sites in AiService.callWithFallback, not by @Primary. Gemini and Cerebras beans are
+ * derived from the auto-configured base using mutate(), same retry and serialization
+ * logic, different base URL and API key.
  *
- * Provider routing (see AiService):
- *  - groq          → vision + fast text (Llama 4 Scout, 1,000 RPD free)
- *  - gemini-lite   → text parsing (Gemini 2.5 Flash-Lite, 1,000 RPD free)
- *  - gemini-flash  → advisor + complex (Gemini 2.5 Flash)
- *  - cerebras      → text-only emergency fallback (gpt-oss-120b, 1M TPD free)
+ * Per-operation fallback order (see AiService):
+ *  - text parsing → gemini-lite, then groq, then gemini-flash, then cerebras
+ *  - vision       → groq (Llama 4 Scout), then gemini-flash
+ *  - advisor      → groq, then gemini-flash, then gemini-lite, then cerebras
+ *  - insight      → gemini-lite, then groq, then gemini-flash
+ *
+ * Free tiers: groq and gemini-lite ~1,000 RPD, cerebras ~1M TPD.
  */
 @Configuration
 @RequiredArgsConstructor
@@ -29,7 +33,7 @@ public class AiConfig {
 
     private final AppProperties props;
 
-    /** Primary — Groq (Llama 4 Scout). Auto-configured from spring.ai.openai.*. */
+    /** Spring @Primary bean (default injection) — Groq (Llama 4 Scout), auto-configured from spring.ai.openai.*. */
     @Bean
     @Primary
     public ChatClient groqChatClient(OpenAiChatModel openAiChatModel) {
